@@ -6,6 +6,7 @@ import (
 	"fmt"
 	_ "modernc.org/sqlite"
 	"database/sql"
+	"net/http"
 
 	"src/utils"
 	repo "src/repository"
@@ -30,8 +31,12 @@ var monthNames = map[string]string{
     "12": "December",
 }
 
+var CHAT_ID = int64(-1002481034087)
+
 func get_api_key() string {
-	utils.LoadEnv()
+	if os.Getenv("TELEGRAM_TOKEN") == "" {
+		utils.LoadEnv()
+	}
 	return os.Getenv("TELEGRAM_TOKEN")
 }
 
@@ -134,10 +139,25 @@ func send_yearly_poodium(bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
 }
 
 func main() {
+	fmt.Print("Starting bot...\n")
 	apiKey := get_api_key()
     if apiKey == "" {
         log.Fatal("TELEGRAM_TOKEN is not set")
     }
+
+	port := os.Getenv("PORT")
+    if port == "" {
+        port = "8080"
+    }
+
+	go func() {
+        http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+            fmt.Fprintf(w, "Hello, World!")
+        })
+
+        log.Println("Listening on", port)
+        log.Fatal(http.ListenAndServe(":"+port, nil))
+    }()
 
 	bot, err := tg_bot.NewBotAPI(apiKey)
 	utils.CheckError("Failed to create new bot instance", err)
@@ -153,7 +173,7 @@ func main() {
 	// Schedule the poodium message
     monthlyCron := cron.New()
     _, err = monthlyCron.AddFunc("0 0 1 * *", func() {
-        chatID := int64(-4734467277) //CHANGE THIS
+        chatID := int64(CHAT_ID)
         send_monthly_poodium(bot, db, chatID)
     })
 	utils.CheckError("Failed to schedule monthly poodium message", err)
@@ -162,7 +182,7 @@ func main() {
 	// Schedule the poodium message
     yearlyCron := cron.New()
 	_, err = yearlyCron.AddFunc("0 0 1 1 *", func() {
-		chatID := int64(-4734467277) //CHANGE THIS
+		chatID := int64(CHAT_ID)
 		send_yearly_poodium(bot, db, chatID)
 	})
 	utils.CheckError("Failed to schedule yearly poodium message", err)
@@ -187,4 +207,6 @@ func main() {
 			handle_commands(bot, db, update, userId, msg)
 		}
 	}
+
+	select {}
 }
