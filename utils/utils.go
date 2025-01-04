@@ -12,6 +12,6 @@ func CheckError(msg string, e error) {
 }
 
 func LoadEnv() {
-	err := dotenv.Load("../../.env")
+	err := dotenv.Load("../.env")
 	CheckError("Failed to load environment variables", err)
 }

@@ -7,6 +7,7 @@ import (
 	_ "modernc.org/sqlite"
 	"database/sql"
 	"net/http"
+	"time"
 
 	"src/utils"
 	repo "src/repository"
@@ -54,7 +55,7 @@ func handle_new_poop(db *sql.DB, userId int64, username string, msgId int) {
 func handle_commands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig) {
 	log.Println("Command received:", update.Message.Command())
 	switch update.Message.Command() {
-		case "poop":
+		case "my_poop_count":
 			globalPoopCount, errGlobal := repo.Get_Global_Poop_Count(db, userId)
 			monthlyPoopCount, errMonthly := repo.Get_Monthly_Poop_Count(db, userId)
 			if errGlobal != nil || errMonthly != nil {
@@ -72,7 +73,7 @@ func handle_commands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userI
 			msg.Text = "This month you've pooped " + fmt.Sprint(monthlyPoopCount) + " " + monthlyPoopText + ".\n" + 
 						"You've logged " + fmt.Sprint(globalPoopCount) + " " + globalPoopText + " so far! 💩"
 			send_message(bot, msg)
-		case "poop_stats":
+		case "my_poop_log":
 			monthlyPoopCounts, err := repo.Get_Monthly_Poop_Stats(db, userId)
 			utils.CheckError("Failed to get monthly poop stats", err)
 
@@ -83,7 +84,7 @@ func handle_commands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userI
 				msg.Text += fmt.Sprintf("\t\t\t• %s: %d💩\n", monthNames[month], mpc.PoopCount)
 			}
 			send_message(bot, msg)
-		case "monthly_poodium":
+		case "poop_champs":
 			monthlyPoodium, err := repo.Get_Monthly_Poodium(db)
 			if err != nil {
 				msg.Text = "Sorry, I couldn't retrieve the monthly poodium. Please try again later!"
@@ -91,7 +92,7 @@ func handle_commands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userI
 			}
 			msg.Text = "This month's top poopers are:\n" + build_poodium_message(monthlyPoodium)
 			send_message(bot, msg)
-		case "yearly_poodium":
+		case "poop_champs_year":
 			yearlyPoodium, err := repo.Get_Yearly_Poodium(db)
 			if err != nil {
 				msg.Text = "Sorry, I couldn't retrieve the yearly poodium. Please try again later!"
@@ -106,10 +107,10 @@ func handle_commands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userI
 			}
 			msg.Text = message + "Here are the commands I understand:\n" +
 						"\t\t\t\t• /help - Get a list of available commands\n" +
-						"\t\t\t\t• /poop - Get your personal poop count\n" +
-						"\t\t\t\t• /poop_stats - Get your personal monthly poop statistics\n" +
-						"\t\t\t\t• /monthly_poodium - Get the monthly poodium\n" +
-						"\t\t\t\t• /yearly_poodium - Get the yearly poodium"
+						"\t\t\t\t• /my_poop_count - Get your personal poop count\n" +
+						"\t\t\t\t• /my_poop_log - Get your personal monthly poop statistics\n" +
+						"\t\t\t\t• /poop_champs - Get the monthly poodium\n" +
+						"\t\t\t\t• /poop_champs_year - Get the yearly poodium"
 			send_message(bot, msg)
 	}
 }
@@ -124,7 +125,10 @@ func send_monthly_poodium(bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
     topPoopers, err := repo.Get_Monthly_Poodium(db)
 	utils.CheckError("Failed to get top poopers", err)
 
-    messageText := "🏆 Poodium for this month 🏆\n" + build_poodium_message(topPoopers)
+	_, month, _ := time.Now().Date()
+	monthStr := fmt.Sprintf("%02d", month)
+
+    messageText := "🏆 Poodium for " + monthNames[monthStr] + " 🏆\n" + build_poodium_message(topPoopers)
     msg := tg_bot.NewMessage(chatID, messageText)
     send_message(bot, msg)
 }
@@ -133,7 +137,9 @@ func send_yearly_poodium(bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
     topPoopers, err := repo.Get_Yearly_Poodium(db)
 	utils.CheckError("Failed to get top poopers", err)
 
-    messageText := "🏆 Poodium for this year 🏆\n" + build_poodium_message(topPoopers)
+	year, _, _ := time.Now().Date()
+
+	messageText := "🏆 Poodium for " + fmt.Sprint(year) + " 🏆\n" + build_poodium_message(topPoopers)
     msg := tg_bot.NewMessage(chatID, messageText)
     send_message(bot, msg)
 }
