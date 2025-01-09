@@ -5,6 +5,9 @@
 - Check yearly podium
 - Automatic announcement of the monthly podium at the end of each month
 - Automatic announcement of the yearly podium at the end of each year
+- Bot reacts to messages
+- Check the monthly leaderboard
+- Check the bottom three from the leaderboard
 
 # Future Features/Requests
 - Yearly "Wrapped" - an overview of your year's activity - sent directly via Telegram PM
@@ -25,4 +28,3 @@
 - Bot can react to messages
     - Random reactions
     - Reactions based on the time the poop happened
-- Check the month's whole ranking, not only the top three

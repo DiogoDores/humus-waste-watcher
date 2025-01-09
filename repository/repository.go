@@ -69,7 +69,7 @@ func Get_Monthly_Poodium(db *sql.DB) ([]UserPoopCount, error) {
     FROM poop_tracker
     WHERE strftime('%Y-%m', timestamp) = strftime('%Y-%m', 'now')
     GROUP BY user_id
-    ORDER BY poop_count DESC
+    ORDER BY poop_count DESC, MAX(timestamp) ASC
     LIMIT 3;
     `
     rows, err := db.Query(query)
@@ -95,7 +95,7 @@ func Get_Yearly_Poodium(db *sql.DB) ([]UserPoopCount, error) {
     FROM poop_tracker
     WHERE strftime('%Y', timestamp) = strftime('%Y', 'now')
     GROUP BY user_id
-    ORDER BY poop_count DESC
+    ORDER BY poop_count DESC, MAX(timestamp) ASC
     LIMIT 3;
     `
     rows, err := db.Query(query)
@@ -144,6 +144,57 @@ func Get_Monthly_Poop_Stats(db *sql.DB, userID int64) ([]MonthlyPoopCount, error
     }
 
     return results, nil
+}
+
+func Get_Monthly_Leaderboard(db *sql.DB) ([]UserPoopCount, error) {
+    query := `
+    SELECT username, COUNT(*) AS poop_count
+    FROM poop_tracker
+    WHERE strftime('%Y-%m', timestamp) = strftime('%Y-%m', 'now')
+    GROUP BY user_id
+    ORDER BY poop_count DESC, MAX(timestamp) ASC;
+    `
+    rows, err := db.Query(query)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var leaderboard []UserPoopCount
+    for rows.Next() {
+        var upc UserPoopCount
+        if err := rows.Scan(&upc.Username, &upc.PoopCount); err != nil {
+            return nil, err
+        }
+        leaderboard = append(leaderboard, upc)
+    }
+    return leaderboard, nil
+}
+
+func Get_Bottom_Poopers(db *sql.DB) ([]UserPoopCount, error) {
+    query := `
+    SELECT username, COUNT(*) AS poop_count
+    FROM poop_tracker
+    WHERE strftime('%Y-%m', timestamp) = strftime('%Y-%m', 'now')
+    GROUP BY user_id
+    ORDER BY poop_count ASC, MAX(timestamp) ASC
+    LIMIT 3;
+    `
+    rows, err := db.Query(query)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var bottomPoopers []UserPoopCount
+    for rows.Next() {
+        var upc UserPoopCount
+        if err := rows.Scan(&upc.Username, &upc.PoopCount); err != nil {
+            return nil, err
+        }
+        bottomPoopers = append(bottomPoopers, upc)
+    }
+    return bottomPoopers, nil
 }
 
 func create_table(db *sql.DB) error {

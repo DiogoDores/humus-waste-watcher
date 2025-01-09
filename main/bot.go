@@ -8,6 +8,8 @@ import (
 	"database/sql"
 	"net/http"
 	"time"
+	"encoding/json"
+	"bytes"
 
 	"src/utils"
 	repo "src/repository"
@@ -16,6 +18,21 @@ import (
 	"github.com/robfig/cron/v3"
 
 )
+
+const telegramAPIBase = "https://api.telegram.org/bot"
+
+type AddReactionRequest struct {
+    ChatID    int64          `json:"chat_id"`
+    MessageID int            `json:"message_id"`
+    Reaction  []ReactionType `json:"reaction"`
+    IsBig     bool           `json:"is_big"`
+}
+
+type ReactionType struct {
+    Type          string `json:"type"`
+    Emoji         string `json:"emoji,omitempty"`
+    CustomEmojiID string `json:"custom_emoji_id,omitempty"`
+}
 
 var monthNames = map[string]string{
     "01": "January",
@@ -84,7 +101,26 @@ func handle_commands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userI
 				msg.Text += fmt.Sprintf("\t\t\t• %s: %d💩\n", monthNames[month], mpc.PoopCount)
 			}
 			send_message(bot, msg)
-		case "poop_champs":
+		case "leaderboard":
+			monthlyLeaderboard, err := repo.Get_Monthly_Leaderboard(db)
+			if err != nil {
+				msg.Text = "Sorry, I couldn't retrieve the monthly leaderboard. Please try again later!"
+				send_message(bot, msg)
+			}
+			msg.Text = "This month's leaderboard:\n"
+			for _, user := range monthlyLeaderboard {
+				msg.Text += fmt.Sprintf("\t\t\t• %s - %d💩\n", user.Username, user.PoopCount)
+			}
+			send_message(bot, msg)
+		case "bottom_poopers":
+			bottomPoopers, err := repo.Get_Bottom_Poopers(db)
+			if err != nil {
+				msg.Text = "Sorry, I couldn't retrieve the bottom poopers. Please try again later!"
+				send_message(bot, msg)
+			}
+			msg.Text = "This month's bottom poopers are:\n" + build_poodium_message(bottomPoopers)
+			send_message(bot, msg)
+		case "poodium":
 			monthlyPoodium, err := repo.Get_Monthly_Poodium(db)
 			if err != nil {
 				msg.Text = "Sorry, I couldn't retrieve the monthly poodium. Please try again later!"
@@ -92,7 +128,7 @@ func handle_commands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userI
 			}
 			msg.Text = "This month's top poopers are:\n" + build_poodium_message(monthlyPoodium)
 			send_message(bot, msg)
-		case "poop_champs_year":
+		case "poodium_year":
 			yearlyPoodium, err := repo.Get_Yearly_Poodium(db)
 			if err != nil {
 				msg.Text = "Sorry, I couldn't retrieve the yearly poodium. Please try again later!"
@@ -109,8 +145,10 @@ func handle_commands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userI
 						"\t\t\t\t• /help - Get a list of available commands\n" +
 						"\t\t\t\t• /my_poop_count - Get your personal poop count\n" +
 						"\t\t\t\t• /my_poop_log - Get your personal monthly poop statistics\n" +
-						"\t\t\t\t• /poop_champs - Get the monthly poodium\n" +
-						"\t\t\t\t• /poop_champs_year - Get the yearly poodium"
+						"\t\t\t\t• /leaderboard - Get the monthly leaderboard\n" +
+						"\t\t\t\t• /bottom_poopers - Get the reverse poodium\n" +
+						"\t\t\t\t• /poodium - Get the monthly poodium\n" +
+						"\t\t\t\t• /poodium_year - Get the yearly poodium"
 			send_message(bot, msg)
 	}
 }
@@ -144,6 +182,34 @@ func send_yearly_poodium(bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
     send_message(bot, msg)
 }
 
+func addReaction(botToken string, chatID int64, messageID int, emoji string) error {
+	url := fmt.Sprintf("%s%s/setMessageReaction", telegramAPIBase, botToken)
+
+	reactionRequest := AddReactionRequest{
+        ChatID:    chatID,
+        MessageID: messageID,
+        Reaction:  []ReactionType{{Type: "emoji", Emoji: emoji}},
+        IsBig:     false,
+    }
+
+    jsonBody, err := json.Marshal(reactionRequest)
+    if err != nil {
+        return fmt.Errorf("failed to marshal reaction request: %w", err)
+    }
+
+    resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonBody))
+    if err != nil {
+        return fmt.Errorf("failed to send request: %w", err)
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        return fmt.Errorf("failed to add reaction, status code: %d", resp.StatusCode)
+    }
+
+    return nil
+}
+
 func main() {
 	fmt.Print("Starting bot...\n")
 	apiKey := get_api_key()
@@ -151,7 +217,7 @@ func main() {
         log.Fatal("TELEGRAM_TOKEN is not set")
     }
 
-	port := os.Getenv("PORT")
+ 	port := os.Getenv("PORT")
     if port == "" {
         port = "8080"
     }
@@ -163,7 +229,7 @@ func main() {
 
         log.Println("Listening on", port)
         log.Fatal(http.ListenAndServe(":"+port, nil))
-    }()
+    }() 
 
 	bot, err := tg_bot.NewBotAPI(apiKey)
 	utils.CheckError("Failed to create new bot instance", err)
@@ -172,6 +238,7 @@ func main() {
 
     updateConfig := tg_bot.NewUpdate(0)
     updateConfig.Timeout = 30
+	updateConfig.AllowedUpdates = []string{"message", "message_reaction"}
     updates := bot.GetUpdatesChan(updateConfig)
 
 	db := repo.Open_DB_Connection()
@@ -207,6 +274,12 @@ func main() {
 		if update.Message.Text == "💩" || (update.Message.Sticker != nil && update.Message.Sticker.Emoji == "💩") {
 			log.Println("New poop detected!")
 			handle_new_poop(db, userId, username, messageId)
+			err := addReaction(apiKey, update.Message.Chat.ID, update.Message.MessageID, "💩")
+			if err != nil {
+				log.Printf("Failed to add reaction: %v", err)
+			} else {
+				log.Println("Reaction added successfully.")
+			}
 		}
 
 		if update.Message.Command() != "" {

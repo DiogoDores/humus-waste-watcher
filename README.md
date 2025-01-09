@@ -17,3 +17,9 @@ This release consists of the bot deployment to Fly.io with the following feature
 - Check yearly podium
 - Announcement of the monthly podium at the end of each month
 - Announcement of the yearly podium at the end of each year
+
+## 1.1.0
+This release adds a few more features and reduces some costs on Fly.io. Features added:
+- Bot reacts to messages
+- Check the monthly leaderboard
+- Check the bottom three from the leaderboard
