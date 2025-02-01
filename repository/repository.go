@@ -1,11 +1,13 @@
 package repository
 
 import (
-	"src/utils"
-	"log"
 	"database/sql"
+	"fmt"
+	"log"
+	"os"
+	"src/utils"
+
 	_ "modernc.org/sqlite"
-    "os"
 )
 
 type MonthlyPoopCount struct {
@@ -25,13 +27,13 @@ func get_db_path() string {
 	return os.Getenv("DB_PATH")
 }
 
-func Log_Poop(db *sql.DB, userID int64, username string, msgId int) error {
+func Log_Poop(db *sql.DB, userID int64, username string, msgId int, timestamp string) error {
 	query := `
-	INSERT INTO poop_tracker (user_id, username, message_id)
-	VALUES (?, ?, ?)
+	INSERT INTO poop_tracker (user_id, username, message_id, timestamp)
+	VALUES (?, ?, ?, ?)
 	`
 	log.Println("Logging poop for user:", username)
-	_, err := db.Exec(query, userID, username, msgId)
+	_, err := db.Exec(query, userID, username, msgId, timestamp)
 	return err
 }
 
@@ -68,6 +70,32 @@ func Get_Monthly_Poodium(db *sql.DB) ([]UserPoopCount, error) {
     SELECT username, COUNT(*) AS poop_count
     FROM poop_tracker
     WHERE strftime('%Y-%m', timestamp) = strftime('%Y-%m', 'now')
+    GROUP BY user_id
+    ORDER BY poop_count DESC, MAX(timestamp) ASC
+    LIMIT 3;
+    `
+    rows, err := db.Query(query)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var topPoopers []UserPoopCount
+    for rows.Next() {
+        var upc UserPoopCount
+        if err := rows.Scan(&upc.Username, &upc.PoopCount); err != nil {
+            return nil, err
+        }
+        topPoopers = append(topPoopers, upc)
+    }
+    return topPoopers, nil
+}
+
+func Get_Past_Month_Poodium(db *sql.DB) ([]UserPoopCount, error) {
+    query := `
+    SELECT username, COUNT(*) AS poop_count
+    FROM poop_tracker
+    WHERE strftime('%Y-%m', timestamp) = strftime('%Y-%m', 'now', '-1 month')
     GROUP BY user_id
     ORDER BY poop_count DESC, MAX(timestamp) ASC
     LIMIT 3;
@@ -195,6 +223,85 @@ func Get_Bottom_Poopers(db *sql.DB) ([]UserPoopCount, error) {
         bottomPoopers = append(bottomPoopers, upc)
     }
     return bottomPoopers, nil
+}
+
+func Get_Days_Without_Poop(db *sql.DB, userID int64) (int, error) {
+    query := `
+    WITH all_days AS (
+        SELECT julianday('now') - julianday(strftime('%Y-01-01', 'now')) + 1 AS day
+    ),
+    pooped_days AS (
+        SELECT DISTINCT date(timestamp) AS day
+        FROM poop_tracker
+        WHERE user_id = ?
+    )
+    SELECT COUNT(*)
+    FROM all_days
+    WHERE day NOT IN (SELECT day FROM pooped_days);
+    `
+    var daysWithoutPoop int
+    err := db.QueryRow(query, userID).Scan(&daysWithoutPoop)
+
+    fmt.Println(daysWithoutPoop)
+    if err != nil {
+        return 0, err
+    }
+    return daysWithoutPoop, nil
+}
+
+func Get_Max_Poop_Streak(db *sql.DB, userID int64) (int, error) {
+    query := `
+    WITH daily_poops AS (
+        SELECT 
+            date(timestamp) AS day, 
+            COUNT(*) AS poops
+        FROM poop_tracker
+        WHERE user_id = ?
+        GROUP BY day
+        ORDER BY day
+    ),
+    streaks AS (
+        SELECT 
+            day, 
+            poops,
+            -- Identify streak groups
+            ROW_NUMBER() OVER (ORDER BY day) - 
+            ROW_NUMBER() OVER (PARTITION BY poops ORDER BY day) AS streak_group
+        FROM daily_poops
+    )
+    SELECT MAX(streak_count) AS max_streak
+    FROM (
+        SELECT COUNT(*) AS streak_count
+        FROM streaks
+        GROUP BY streak_group
+    );
+    `
+    var maxStreak int
+    err := db.QueryRow(query, userID).Scan(&maxStreak)
+    if err != nil {
+        return 0, err
+    }
+    return maxStreak, nil
+}
+
+func Get_Day_With_Most_Poops(db *sql.DB, userID int64) (string, int, error) {
+    query := `
+    SELECT 
+        date(timestamp) AS day, 
+        COUNT(*) AS dumps
+    FROM poop_tracker
+    WHERE user_id = ?
+    GROUP BY day
+    ORDER BY dumps DESC
+    LIMIT 1;
+    `
+    var day string
+    var dumps int
+    err := db.QueryRow(query, userID).Scan(&day, &dumps)
+    if err != nil {
+        return "", 0, err
+    }
+    return day, dumps, nil
 }
 
 func create_table(db *sql.DB) error {

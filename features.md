@@ -1,6 +1,4 @@
 # Current Features
-- Check current month's and global waste counter
-- Check monthly overview of the waste counter
 - Check monthly podium
 - Check yearly podium
 - Automatic announcement of the monthly podium at the end of each month
@@ -8,6 +6,13 @@
 - Bot reacts to messages
 - Check the monthly leaderboard
 - Check the bottom three from the leaderboard
+- Average number of poops per day in a year
+- Number of days without poops
+- Number of consecutive days you've poop the same number of times
+- Day with the most poops
+- Number of poops each month
+- Average number of poops per day in each month
+
 
 # Future Features/Requests
 - Yearly "Wrapped" - an overview of your year's activity - sent directly via Telegram PM
