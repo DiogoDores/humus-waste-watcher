@@ -228,7 +228,11 @@ func Get_Bottom_Poopers(db *sql.DB) ([]UserPoopCount, error) {
 func Get_Days_Without_Poop(db *sql.DB, userID int64) (int, error) {
     query := `
     WITH all_days AS (
-        SELECT julianday('now') - julianday(strftime('%Y-01-01', 'now')) + 1 AS day
+        SELECT date('now', '-' || (julianday('now') - julianday(date('now', 'start of year'))) || ' days') AS day
+        UNION ALL
+        SELECT date(day, '+1 day')
+        FROM all_days
+        WHERE day < date('now')
     ),
     pooped_days AS (
         SELECT DISTINCT date(timestamp) AS day

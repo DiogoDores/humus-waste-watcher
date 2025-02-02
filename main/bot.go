@@ -10,6 +10,7 @@ import (
 	"time"
 	"encoding/json"
 	"bytes"
+	"strings"
 
 	"src/utils"
 	repo "src/repository"
@@ -47,7 +48,6 @@ var monthNames = map[string]string{
     "11": "November",
     "12": "December",
 }
-
 
 func daysInMonth(month string, year int) int {
 	monthDays := map[string]int{
@@ -130,7 +130,7 @@ func handle_commands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userI
 
 			yearlyAverage := float64(globalPoopCount) / float64(time.Now().YearDay())
 
-			msg.Text = fmt.Sprintf("*💩 Poop Report for @%s 💩*\n\n", update.Message.From.UserName)
+			msg.Text = fmt.Sprintf("*💩 Poop Report for @%s 💩*\n\n", 	strings.ReplaceAll(update.Message.From.UserName, "_", "\\_"))
 			msg.Text += "*📅 Yearly Overview:*\n"
 			msg.Text += fmt.Sprintf("🟤 Total dumps: `%d`\n", globalPoopCount)
 			msg.Text += fmt.Sprintf("📊 Average per day: `%.2f`\n", yearlyAverage)
@@ -156,7 +156,8 @@ func handle_commands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userI
 			}
 			msg.Text = "This month's leaderboard:\n"
 			for _, user := range monthlyLeaderboard {
-				msg.Text += fmt.Sprintf("\t\t\t• %s - %d💩\n", user.Username, user.PoopCount)
+				escapedUsername := strings.ReplaceAll(user.Username, "_", "\\_")
+				msg.Text += fmt.Sprintf("\t\t\t• %s - %d💩\n", escapedUsername, user.PoopCount)
 			}
 			send_message(bot, msg)
 		case "bottom_poopers":
@@ -189,21 +190,20 @@ func handle_commands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userI
 				message += "Sorry, I don't recognize that command. "
 			}
 			msg.Text = message + "Here are the commands I understand:\n" +
-						"\t\t\t\t• /help - Get a list of available commands\n" +
-						"\t\t\t\t• /my_poop_count - Get your personal poop count\n" +
-						"\t\t\t\t• /my_poop_log - Get your personal monthly poop statistics\n" +
-						"\t\t\t\t• /leaderboard - Get the monthly leaderboard\n" +
-						"\t\t\t\t• /bottom_poopers - Get the reverse poodium\n" +
-						"\t\t\t\t• /poodium - Get the monthly poodium\n" +
-						"\t\t\t\t• /poodium_year - Get the yearly poodium"
+						"\t\t\t\t• _/help_ \\- Get a list of available commands\n" +
+						"\t\t\t\t• _/my\\_poop\\_log_ \\- Get your personal monthly poop statistics\n" +
+						"\t\t\t\t• _/leaderboard_ \\- Get the monthly leaderboard\n" +
+						"\t\t\t\t• _/bottom\\_poopers_ \\- Get the reverse poodium\n" +
+						"\t\t\t\t• _/poodium_ \\- Get the monthly poodium\n" +
+						"\t\t\t\t• _/poodium\\_year_ \\- Get the yearly poodium"
 			send_message(bot, msg)
 	}
 }
 
 func build_poodium_message(topPoopers []repo.UserPoopCount) string {
-	return "🥇 " + fmt.Sprint(topPoopers[0].Username) + " - " + fmt.Sprint(topPoopers[0].PoopCount) + "💩\n" +
-			"🥈 " + fmt.Sprint(topPoopers[1].Username) + " - " + fmt.Sprint(topPoopers[1].PoopCount) + "💩\n" +
-			"🥉 " + fmt.Sprint(topPoopers[2].Username) + " - " + fmt.Sprint(topPoopers[2].PoopCount) + "💩"
+	return "🥇 " + fmt.Sprint(strings.ReplaceAll(topPoopers[0].Username, "_", "\\_")) + " - " + fmt.Sprint(topPoopers[0].PoopCount) + "💩\n" +
+			"🥈 " + fmt.Sprint(strings.ReplaceAll(topPoopers[1].Username, "_", "\\_")) + " - " + fmt.Sprint(topPoopers[1].PoopCount) + "💩\n" +
+			"🥉 " + fmt.Sprint(strings.ReplaceAll(topPoopers[2].Username, "_", "\\_")) + " - " + fmt.Sprint(topPoopers[2].PoopCount) + "💩"
 }
 
 func send_monthly_poodium(bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
