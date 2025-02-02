@@ -157,7 +157,7 @@ func handle_commands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userI
 			msg.Text = "This month's leaderboard:\n"
 			for _, user := range monthlyLeaderboard {
 				escapedUsername := strings.ReplaceAll(user.Username, "_", "\\_")
-				msg.Text += fmt.Sprintf("\t\t\t• %s - %d💩\n", escapedUsername, user.PoopCount)
+				msg.Text += fmt.Sprintf("\t\t\t• %s \\- %d💩\n", escapedUsername, user.PoopCount)
 			}
 			send_message(bot, msg)
 		case "bottom_poopers":
@@ -201,9 +201,9 @@ func handle_commands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userI
 }
 
 func build_poodium_message(topPoopers []repo.UserPoopCount) string {
-	return "🥇 " + fmt.Sprint(strings.ReplaceAll(topPoopers[0].Username, "_", "\\_")) + " - " + fmt.Sprint(topPoopers[0].PoopCount) + "💩\n" +
-			"🥈 " + fmt.Sprint(strings.ReplaceAll(topPoopers[1].Username, "_", "\\_")) + " - " + fmt.Sprint(topPoopers[1].PoopCount) + "💩\n" +
-			"🥉 " + fmt.Sprint(strings.ReplaceAll(topPoopers[2].Username, "_", "\\_")) + " - " + fmt.Sprint(topPoopers[2].PoopCount) + "💩"
+	return "🥇 " + fmt.Sprint(strings.ReplaceAll(topPoopers[0].Username, "_", "\\_")) + " \\- " + fmt.Sprint(topPoopers[0].PoopCount) + "💩\n" +
+			"🥈 " + fmt.Sprint(strings.ReplaceAll(topPoopers[1].Username, "_", "\\_")) + " \\- " + fmt.Sprint(topPoopers[1].PoopCount) + "💩\n" +
+			"🥉 " + fmt.Sprint(strings.ReplaceAll(topPoopers[2].Username, "_", "\\_")) + " \\- " + fmt.Sprint(topPoopers[2].PoopCount) + "💩"
 }
 
 func send_monthly_poodium(bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
