@@ -1,0 +1,38 @@
+name: Deploy to Fly.io
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install Flyctl
+        run: |
+          curl -L https://fly.io/install.sh | sh
+          export FLYCTL_INSTALL="/home/runner/.fly"
+          export PATH="$FLYCTL_INSTALL/bin:$PATH"
+
+      - name: Authenticate Flyctl
+        run: flyctl auth login --access-token ${{ secrets.FLY_API_TOKEN }}
+
+      - name: check stuff
+        run: ls -la
+
+      # - name: Start SFTP session and download database
+      #   run: |
+      #     flyctl ssh sftp shell -a humus-waste-watcher <<EOF
+      #     get /app/data/poop_tracker.db data/poop_tracker.db
+      #     EOF
+
+      # - name: Deploy to Fly.io
+      #   run: flyctl deploy
+
+      # - name: Clean up
+      #   run: rm -rf data/poop_tracker.db
