@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -18,18 +19,27 @@ jobs:
           curl -L https://fly.io/install.sh | sh
           export FLYCTL_INSTALL="/home/runner/.fly"
           export PATH="$FLYCTL_INSTALL/bin:$PATH"
+          echo "FLYCTL_INSTALL=$FLYCTL_INSTALL" >> $GITHUB_ENV
+          echo "PATH=$PATH" >> $GITHUB_ENV
 
       - name: Authenticate Flyctl
-        run: flyctl auth login --access-token ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl auth login --email diogo.dores@gmail.com --password ${{ secrets.FLY_PASSWORD }} --access-token ${{ secrets.FLY_API_TOKEN }}
 
+      - name: Start SFTP session and download database
+        run: |
+          mkdir data
+          flyctl ssh sftp shell -a humus-waste-watcher <<EOF
+          get /app/data/poop_tracker.db data/poop_tracker.db
+          EOF
+
+      - name: Upload database artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: poop_tracker_db
+          path: data/poop_tracker.db
+      
       - name: check stuff
         run: ls -la
-
-      # - name: Start SFTP session and download database
-      #   run: |
-      #     flyctl ssh sftp shell -a humus-waste-watcher <<EOF
-      #     get /app/data/poop_tracker.db data/poop_tracker.db
-      #     EOF
 
       # - name: Deploy to Fly.io
       #   run: flyctl deploy
