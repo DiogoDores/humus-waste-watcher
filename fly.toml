@@ -4,7 +4,7 @@
 #
 
 app = 'humus-waste-watcher'
-primary_region = 'mad'
+primary_region = 'cdg'
 
 [build]
 

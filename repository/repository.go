@@ -27,13 +27,13 @@ func get_db_path() string {
 	return os.Getenv("DB_PATH")
 }
 
-func Log_Poop(db *sql.DB, userID int64, username string, msgId int, timestamp string) error {
+func Log_Poop(db *sql.DB, userID int64, username string, msgId int, timestamp string, unixTimestamp int64) error {
 	query := `
-	INSERT INTO poop_tracker (user_id, username, message_id, timestamp)
-	VALUES (?, ?, ?, ?)
+	INSERT INTO poop_tracker (user_id, username, message_id, timestamp, created_at_unix)
+	VALUES (?, ?, ?, ?, ?)
 	`
 	log.Println("Logging poop for user:", username)
-	_, err := db.Exec(query, userID, username, msgId, timestamp)
+	_, err := db.Exec(query, userID, username, msgId, timestamp, unixTimestamp)
 	return err
 }
 
@@ -315,7 +315,8 @@ func create_table(db *sql.DB) error {
 	    user_id INTEGER NOT NULL,
 	    username TEXT NOT NULL,
 		message_id INTEGER UNIQUE NOT NULL,
-	    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+	    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at_unix INTEGER NOT NULL
 	);
 	`
 	_, err := db.Exec(query)
