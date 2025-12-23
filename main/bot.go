@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -81,11 +82,11 @@ func sendMessage(bot *tg_bot.BotAPI, msg tg_bot.MessageConfig) {
 	}
 }
 
-func handleNewPoop(db *sql.DB, userId int64, username string, msgId int, timestamp int64) {
+func handleNewPoop(ctx context.Context, db *sql.DB, userId int64, username string, msgId int, timestamp int64) {
 	t := time.Unix(timestamp, 0).UTC()
 	sqliteTimestamp := t.Format("2006-01-02 15:04:05")
 
-	err := repo.LogPoop(db, userId, username, msgId, sqliteTimestamp, t.Unix())
+	err := repo.LogPoop(ctx, db, userId, username, msgId, sqliteTimestamp, t.Unix())
 	if err != nil {
 		log.Printf("Failed to log poop: %v", err)
 		return
@@ -93,15 +94,15 @@ func handleNewPoop(db *sql.DB, userId int64, username string, msgId int, timesta
 	log.Println("Poop logged successfully!")
 }
 
-func handleCommands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig) {
+func handleCommands(ctx context.Context, bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig) {
 	log.Println("Command received:", update.Message.Command())
 	switch update.Message.Command() {
 	case "my_poop_log":
-		globalPoopCount, errGlobal := repo.GetGlobalPoopCount(db, userId)
-		monthlyPoopCounts, errMonthly := repo.GetMonthlyPoopStats(db, userId)
-		daysWithoutPoop, errNoPoop := repo.GetDaysWithoutPoop(db, userId)
-		maxStreak, errStreak := repo.GetMaxPoopStreak(db, userId)
-		day, poops, mostPoopsErr := repo.GetDayWithMostPoops(db, userId)
+		globalPoopCount, errGlobal := repo.GetGlobalPoopCount(ctx, db, userId)
+		monthlyPoopCounts, errMonthly := repo.GetMonthlyPoopStats(ctx, db, userId)
+		daysWithoutPoop, errNoPoop := repo.GetDaysWithoutPoop(ctx, db, userId)
+		maxStreak, errStreak := repo.GetMaxPoopStreak(ctx, db, userId)
+		day, poops, mostPoopsErr := repo.GetDayWithMostPoops(ctx, db, userId)
 
 		if errGlobal != nil || errMonthly != nil || errNoPoop != nil || errStreak != nil || mostPoopsErr != nil {
 			msg.Text = "Sorry, I couldn't retrieve your poop log\\. Please try again later\\!"
@@ -143,7 +144,7 @@ func handleCommands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userId
 
 		sendMessage(bot, msg)
 	case "leaderboard":
-		monthlyLeaderboard, err := repo.GetMonthlyLeaderboard(db)
+		monthlyLeaderboard, err := repo.GetMonthlyLeaderboard(ctx, db)
 		if err != nil {
 			msg.Text = "Sorry, I couldn't retrieve the monthly leaderboard\\. Please try again later\\!"
 			sendMessage(bot, msg)
@@ -156,7 +157,7 @@ func handleCommands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userId
 		}
 		sendMessage(bot, msg)
 	case "bottom_poopers":
-		bottomPoopers, err := repo.GetBottomPoopers(db)
+		bottomPoopers, err := repo.GetBottomPoopers(ctx, db)
 		if err != nil {
 			msg.Text = "Sorry, I couldn't retrieve the bottom poopers\\. Please try again later\\!"
 			sendMessage(bot, msg)
@@ -164,7 +165,7 @@ func handleCommands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userId
 		msg.Text = "This month's bottom poopers are:\n" + buildPoodiumMessage(bottomPoopers)
 		sendMessage(bot, msg)
 	case "poodium":
-		monthlyPoodium, err := repo.GetMonthlyPoodium(db)
+		monthlyPoodium, err := repo.GetMonthlyPoodium(ctx, db)
 		if err != nil {
 			msg.Text = "Sorry, I couldn't retrieve the monthly poodium\\. Please try again later\\!"
 			sendMessage(bot, msg)
@@ -172,7 +173,7 @@ func handleCommands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userId
 		msg.Text = "This month's top poopers are:\n" + buildPoodiumMessage(monthlyPoodium)
 		sendMessage(bot, msg)
 	case "poodium_year":
-		yearlyPoodium, err := repo.GetYearlyPoodium(db)
+		yearlyPoodium, err := repo.GetYearlyPoodium(ctx, db)
 		if err != nil {
 			msg.Text = "Sorry, I couldn't retrieve the yearly poodium\\. Please try again later\\!"
 			sendMessage(bot, msg)
@@ -206,8 +207,8 @@ func buildPoodiumMessage(topPoopers []repo.UserPoopCount) string {
 		"🥉 " + escape(fmt.Sprint(topPoopers[2].Username)) + " \\- " + fmt.Sprint(topPoopers[2].PoopCount) + "💩"
 }
 
-func sendMonthlyPoodium(bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
-	topPoopers, err := repo.GetPastMonthPoodium(db)
+func sendMonthlyPoodium(ctx context.Context, bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
+	topPoopers, err := repo.GetPastMonthPoodium(ctx, db)
 	if err != nil {
 		log.Printf("Failed to get top poopers for monthly poodium: %v", err)
 		return
@@ -236,8 +237,8 @@ func sendMonthlyPoodium(bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
 	}
 }
 
-func sendYearlyPoodium(bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
-	topPoopers, err := repo.GetYearlyPoodium(db)
+func sendYearlyPoodium(ctx context.Context, bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
+	topPoopers, err := repo.GetYearlyPoodium(ctx, db)
 	if err != nil {
 		log.Printf("Failed to get top poopers for yearly poodium: %v", err)
 		return
@@ -332,11 +333,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to open database connection: %v", err)
 	}
+	defer db.Close()
+
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	ctx := context.Background()
 
 	// Schedule the monthly poodium message
 	monthlyCron := cron.New()
 	_, err = monthlyCron.AddFunc("0 0 1 * *", func() {
-		sendMonthlyPoodium(bot, db, cfg.GroupChatID)
+		sendMonthlyPoodium(ctx, bot, db, cfg.GroupChatID)
 	})
 	if err != nil {
 		log.Fatalf("Failed to schedule monthly poodium message: %v", err)
@@ -346,7 +354,7 @@ func main() {
 	// Schedule the yearly poodium message
 	yearlyCron := cron.New()
 	_, err = yearlyCron.AddFunc("0 0 1 1 *", func() {
-		sendYearlyPoodium(bot, db, cfg.GroupChatID)
+		sendYearlyPoodium(ctx, bot, db, cfg.GroupChatID)
 	})
 	if err != nil {
 		log.Fatalf("Failed to schedule yearly poodium message: %v", err)
@@ -369,24 +377,24 @@ func main() {
 		case cfg.GroupChatID:
 			if update.Message.Text == "💩" || (update.Message.Sticker != nil && update.Message.Sticker.Emoji == "💩") {
 				log.Println("New poop detected!")
-				handleNewPoop(db, userID, username, messageID, int64(update.Message.Date))
+				handleNewPoop(ctx, db, userID, username, messageID, int64(update.Message.Date))
 				handleReactions(cfg, chatID, messageID, update.Message.Sticker)
 			}
 
 			if update.Message.Command() != "" {
-				handleCommands(bot, db, update, userID, msg)
+				handleCommands(ctx, bot, db, update, userID, msg)
 			}
 		case cfg.MyChatID:
 			if update.Message.Text == "💩" || (update.Message.Sticker != nil && update.Message.Sticker.Emoji == "💩") {
 				userID = update.Message.ForwardFrom.ID
 				username = update.Message.ForwardFrom.UserName
 				messageID = -update.Message.MessageID
-				handleNewPoop(db, userID, username, messageID, int64(update.Message.ForwardDate))
+				handleNewPoop(ctx, db, userID, username, messageID, int64(update.Message.ForwardDate))
 				handleReactions(cfg, chatID, update.Message.MessageID, update.Message.Sticker)
 			}
 
 			if update.Message.Command() != "" {
-				handleCommands(bot, db, update, userID, msg)
+				handleCommands(ctx, bot, db, update, userID, msg)
 			}
 		default:
 			if update.Message.Command() != "" {

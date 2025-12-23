@@ -1,9 +1,11 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
+	"time"
 
 	"src/config"
 
@@ -20,45 +22,45 @@ type UserPoopCount struct {
 	PoopCount int
 }
 
-func LogPoop(db *sql.DB, userID int64, username string, msgId int, timestamp string, unixTimestamp int64) error {
+func LogPoop(ctx context.Context, db *sql.DB, userID int64, username string, msgId int, timestamp string, unixTimestamp int64) error {
 	query := `
 	INSERT INTO poop_tracker (user_id, username, message_id, timestamp, created_at_unix)
 	VALUES (?, ?, ?, ?, ?)
 	`
 	log.Println("Logging poop for user:", username)
-	_, err := db.Exec(query, userID, username, msgId, timestamp, unixTimestamp)
+	_, err := db.ExecContext(ctx, query, userID, username, msgId, timestamp, unixTimestamp)
 	return err
 }
 
-func GetGlobalPoopCount(db *sql.DB, userID int64) (int, error) {
+func GetGlobalPoopCount(ctx context.Context, db *sql.DB, userID int64) (int, error) {
 	query := `
     SELECT COUNT(*) AS poop_count
     FROM poop_tracker
     WHERE user_id = ?;
     `
 	var poopCount int
-	err := db.QueryRow(query, userID).Scan(&poopCount)
+	err := db.QueryRowContext(ctx, query, userID).Scan(&poopCount)
 	if err != nil {
 		return 0, err
 	}
 	return poopCount, nil
 }
 
-func GetMonthlyPoopCount(db *sql.DB, userID int64) (int, error) {
+func GetMonthlyPoopCount(ctx context.Context, db *sql.DB, userID int64) (int, error) {
 	query := `
     SELECT COUNT(*) AS poop_count
     FROM poop_tracker
     WHERE user_id = $1 AND strftime('%Y-%m', timestamp) = strftime('%Y-%m', 'now');
     `
 	var poopCount int
-	err := db.QueryRow(query, userID).Scan(&poopCount)
+	err := db.QueryRowContext(ctx, query, userID).Scan(&poopCount)
 	if err != nil {
 		return 0, err
 	}
 	return poopCount, nil
 }
 
-func GetMonthlyPoodium(db *sql.DB) ([]UserPoopCount, error) {
+func GetMonthlyPoodium(ctx context.Context, db *sql.DB) ([]UserPoopCount, error) {
 	query := `
     SELECT username, COUNT(*) AS poop_count
     FROM poop_tracker
@@ -67,7 +69,7 @@ func GetMonthlyPoodium(db *sql.DB) ([]UserPoopCount, error) {
     ORDER BY poop_count DESC, MAX(timestamp) ASC
     LIMIT 3;
     `
-	rows, err := db.Query(query)
+	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +86,7 @@ func GetMonthlyPoodium(db *sql.DB) ([]UserPoopCount, error) {
 	return topPoopers, nil
 }
 
-func GetPastMonthPoodium(db *sql.DB) ([]UserPoopCount, error) {
+func GetPastMonthPoodium(ctx context.Context, db *sql.DB) ([]UserPoopCount, error) {
 	query := `
     SELECT username, COUNT(*) AS poop_count
     FROM poop_tracker
@@ -93,7 +95,7 @@ func GetPastMonthPoodium(db *sql.DB) ([]UserPoopCount, error) {
     ORDER BY poop_count DESC, MAX(timestamp) ASC
     LIMIT 3;
     `
-	rows, err := db.Query(query)
+	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +112,7 @@ func GetPastMonthPoodium(db *sql.DB) ([]UserPoopCount, error) {
 	return topPoopers, nil
 }
 
-func GetYearlyPoodium(db *sql.DB) ([]UserPoopCount, error) {
+func GetYearlyPoodium(ctx context.Context, db *sql.DB) ([]UserPoopCount, error) {
 	query := `
     SELECT username, COUNT(*) AS poop_count
     FROM poop_tracker
@@ -119,7 +121,7 @@ func GetYearlyPoodium(db *sql.DB) ([]UserPoopCount, error) {
     ORDER BY poop_count DESC, MAX(timestamp) ASC
     LIMIT 3;
     `
-	rows, err := db.Query(query)
+	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +138,7 @@ func GetYearlyPoodium(db *sql.DB) ([]UserPoopCount, error) {
 	return topPoopers, nil
 }
 
-func GetMonthlyPoopStats(db *sql.DB, userID int64) ([]MonthlyPoopCount, error) {
+func GetMonthlyPoopStats(ctx context.Context, db *sql.DB, userID int64) ([]MonthlyPoopCount, error) {
 	query := `
     SELECT strftime('%Y-%m', timestamp) AS month, COUNT(*) AS poop_count
     FROM poop_tracker
@@ -145,7 +147,7 @@ func GetMonthlyPoopStats(db *sql.DB, userID int64) ([]MonthlyPoopCount, error) {
     ORDER BY month;
     `
 
-	rows, err := db.Query(query, userID)
+	rows, err := db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +169,7 @@ func GetMonthlyPoopStats(db *sql.DB, userID int64) ([]MonthlyPoopCount, error) {
 	return results, nil
 }
 
-func GetMonthlyLeaderboard(db *sql.DB) ([]UserPoopCount, error) {
+func GetMonthlyLeaderboard(ctx context.Context, db *sql.DB) ([]UserPoopCount, error) {
 	query := `
     SELECT username, COUNT(*) AS poop_count
     FROM poop_tracker
@@ -175,7 +177,7 @@ func GetMonthlyLeaderboard(db *sql.DB) ([]UserPoopCount, error) {
     GROUP BY user_id
     ORDER BY poop_count DESC, MAX(timestamp) ASC;
     `
-	rows, err := db.Query(query)
+	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +194,7 @@ func GetMonthlyLeaderboard(db *sql.DB) ([]UserPoopCount, error) {
 	return leaderboard, nil
 }
 
-func GetBottomPoopers(db *sql.DB) ([]UserPoopCount, error) {
+func GetBottomPoopers(ctx context.Context, db *sql.DB) ([]UserPoopCount, error) {
 	query := `
     SELECT username, COUNT(*) AS poop_count
     FROM poop_tracker
@@ -201,7 +203,7 @@ func GetBottomPoopers(db *sql.DB) ([]UserPoopCount, error) {
     ORDER BY poop_count ASC, MAX(timestamp) ASC
     LIMIT 3;
     `
-	rows, err := db.Query(query)
+	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +220,7 @@ func GetBottomPoopers(db *sql.DB) ([]UserPoopCount, error) {
 	return bottomPoopers, nil
 }
 
-func GetDaysWithoutPoop(db *sql.DB, userID int64) (int, error) {
+func GetDaysWithoutPoop(ctx context.Context, db *sql.DB, userID int64) (int, error) {
 	query := `
     WITH all_days AS (
         SELECT date('now', '-' || (julianday('now') - julianday(date('now', 'start of year'))) || ' days') AS day
@@ -237,16 +239,15 @@ func GetDaysWithoutPoop(db *sql.DB, userID int64) (int, error) {
     WHERE day NOT IN (SELECT day FROM pooped_days);
     `
 	var daysWithoutPoop int
-	err := db.QueryRow(query, userID).Scan(&daysWithoutPoop)
+	err := db.QueryRowContext(ctx, query, userID).Scan(&daysWithoutPoop)
 
-	fmt.Println(daysWithoutPoop)
 	if err != nil {
 		return 0, err
 	}
 	return daysWithoutPoop, nil
 }
 
-func GetMaxPoopStreak(db *sql.DB, userID int64) (int, error) {
+func GetMaxPoopStreak(ctx context.Context, db *sql.DB, userID int64) (int, error) {
 	query := `
     WITH daily_poops AS (
         SELECT 
@@ -274,14 +275,14 @@ func GetMaxPoopStreak(db *sql.DB, userID int64) (int, error) {
     );
     `
 	var maxStreak int
-	err := db.QueryRow(query, userID).Scan(&maxStreak)
+	err := db.QueryRowContext(ctx, query, userID).Scan(&maxStreak)
 	if err != nil {
 		return 0, err
 	}
 	return maxStreak, nil
 }
 
-func GetDayWithMostPoops(db *sql.DB, userID int64) (string, int, error) {
+func GetDayWithMostPoops(ctx context.Context, db *sql.DB, userID int64) (string, int, error) {
 	query := `
     SELECT 
         date(timestamp) AS day, 
@@ -294,14 +295,14 @@ func GetDayWithMostPoops(db *sql.DB, userID int64) (string, int, error) {
     `
 	var day string
 	var dumps int
-	err := db.QueryRow(query, userID).Scan(&day, &dumps)
+	err := db.QueryRowContext(ctx, query, userID).Scan(&day, &dumps)
 	if err != nil {
 		return "", 0, err
 	}
 	return day, dumps, nil
 }
 
-func createTable(db *sql.DB) error {
+func createTable(ctx context.Context, db *sql.DB) error {
 	query := `
 	CREATE TABLE IF NOT EXISTS poop_tracker (
 	    id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -312,7 +313,7 @@ func createTable(db *sql.DB) error {
         created_at_unix INTEGER NOT NULL
 	);
 	`
-	_, err := db.Exec(query)
+	_, err := db.ExecContext(ctx, query)
 	return err
 }
 
@@ -322,7 +323,8 @@ func OpenDBConnection(cfg *config.Config) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to connect to SQLite database: %w", err)
 	}
 
-	err = createTable(db)
+	ctx := context.Background()
+	err = createTable(ctx, db)
 	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to create table: %w", err)
@@ -330,4 +332,15 @@ func OpenDBConnection(cfg *config.Config) (*sql.DB, error) {
 
 	log.Println("Table created or already exists.")
 	return db, nil
+}
+
+func HealthCheck(ctx context.Context, db *sql.DB) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	err := db.PingContext(ctx)
+	if err != nil {
+		return fmt.Errorf("database health check failed: %w", err)
+	}
+	return nil
 }
