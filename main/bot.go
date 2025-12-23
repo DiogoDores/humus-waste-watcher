@@ -87,25 +87,25 @@ var GIRLY_POOP_ID = "AgADrxkAAtHnYFE"
 var SCARED_POOP_ID = "AgADfBkAAgwIYVE"
 var SUS_POOP_ID = "AgADcxgAAvVG0FE"
 
-func get_api_key() string {
+func getAPIKey() string {
 	if os.Getenv("TELEGRAM_TOKEN") == "" {
 		utils.LoadEnv()
 	}
 	return os.Getenv("TELEGRAM_TOKEN")
 }
 
-func send_message(bot *tg_bot.BotAPI, msg tg_bot.MessageConfig) {
+func sendMessage(bot *tg_bot.BotAPI, msg tg_bot.MessageConfig) {
 	_, err := bot.Send(msg)
 	if err != nil {
 		log.Printf("Bot failed to send message: %v", err)
 	}
 }
 
-func handle_new_poop(db *sql.DB, userId int64, username string, msgId int, timestamp int64) {
+func handleNewPoop(db *sql.DB, userId int64, username string, msgId int, timestamp int64) {
 	t := time.Unix(timestamp, 0).UTC()
 	sqliteTimestamp := t.Format("2006-01-02 15:04:05")
 
-	err := repo.Log_Poop(db, userId, username, msgId, sqliteTimestamp, t.Unix())
+	err := repo.LogPoop(db, userId, username, msgId, sqliteTimestamp, t.Unix())
 	if err != nil {
 		log.Printf("Failed to log poop: %v", err)
 		return
@@ -113,19 +113,19 @@ func handle_new_poop(db *sql.DB, userId int64, username string, msgId int, times
 	log.Println("Poop logged successfully!")
 }
 
-func handle_commands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig) {
+func handleCommands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig) {
 	log.Println("Command received:", update.Message.Command())
 	switch update.Message.Command() {
 	case "my_poop_log":
-		globalPoopCount, errGlobal := repo.Get_Global_Poop_Count(db, userId)
-		monthlyPoopCounts, errMonthly := repo.Get_Monthly_Poop_Stats(db, userId)
-		daysWithoutPoop, errNoPoop := repo.Get_Days_Without_Poop(db, userId)
-		maxStreak, errStreak := repo.Get_Max_Poop_Streak(db, userId)
-		day, poops, mostPoopsErr := repo.Get_Day_With_Most_Poops(db, userId)
+		globalPoopCount, errGlobal := repo.GetGlobalPoopCount(db, userId)
+		monthlyPoopCounts, errMonthly := repo.GetMonthlyPoopStats(db, userId)
+		daysWithoutPoop, errNoPoop := repo.GetDaysWithoutPoop(db, userId)
+		maxStreak, errStreak := repo.GetMaxPoopStreak(db, userId)
+		day, poops, mostPoopsErr := repo.GetDayWithMostPoops(db, userId)
 
 		if errGlobal != nil || errMonthly != nil || errNoPoop != nil || errStreak != nil || mostPoopsErr != nil {
 			msg.Text = "Sorry, I couldn't retrieve your poop log\\. Please try again later\\!"
-			send_message(bot, msg)
+			sendMessage(bot, msg)
 		}
 
 		year := time.Now().Year()
@@ -161,12 +161,12 @@ func handle_commands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userI
 			index++
 		}
 
-		send_message(bot, msg)
+		sendMessage(bot, msg)
 	case "leaderboard":
-		monthlyLeaderboard, err := repo.Get_Monthly_Leaderboard(db)
+		monthlyLeaderboard, err := repo.GetMonthlyLeaderboard(db)
 		if err != nil {
 			msg.Text = "Sorry, I couldn't retrieve the monthly leaderboard\\. Please try again later\\!"
-			send_message(bot, msg)
+			sendMessage(bot, msg)
 		}
 		msg.Text = "This month's leaderboard:\n"
 		for _, user := range monthlyLeaderboard {
@@ -174,31 +174,31 @@ func handle_commands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userI
 			escapedUsername = strings.ReplaceAll(escapedUsername, "-", "\\-")
 			msg.Text += fmt.Sprintf("\t\t\t• %s \\- %d💩\n", escapedUsername, user.PoopCount)
 		}
-		send_message(bot, msg)
+		sendMessage(bot, msg)
 	case "bottom_poopers":
-		bottomPoopers, err := repo.Get_Bottom_Poopers(db)
+		bottomPoopers, err := repo.GetBottomPoopers(db)
 		if err != nil {
 			msg.Text = "Sorry, I couldn't retrieve the bottom poopers\\. Please try again later\\!"
-			send_message(bot, msg)
+			sendMessage(bot, msg)
 		}
-		msg.Text = "This month's bottom poopers are:\n" + build_poodium_message(bottomPoopers)
-		send_message(bot, msg)
+		msg.Text = "This month's bottom poopers are:\n" + buildPoodiumMessage(bottomPoopers)
+		sendMessage(bot, msg)
 	case "poodium":
-		monthlyPoodium, err := repo.Get_Monthly_Poodium(db)
+		monthlyPoodium, err := repo.GetMonthlyPoodium(db)
 		if err != nil {
 			msg.Text = "Sorry, I couldn't retrieve the monthly poodium\\. Please try again later\\!"
-			send_message(bot, msg)
+			sendMessage(bot, msg)
 		}
-		msg.Text = "This month's top poopers are:\n" + build_poodium_message(monthlyPoodium)
-		send_message(bot, msg)
+		msg.Text = "This month's top poopers are:\n" + buildPoodiumMessage(monthlyPoodium)
+		sendMessage(bot, msg)
 	case "poodium_year":
-		yearlyPoodium, err := repo.Get_Yearly_Poodium(db)
+		yearlyPoodium, err := repo.GetYearlyPoodium(db)
 		if err != nil {
 			msg.Text = "Sorry, I couldn't retrieve the yearly poodium\\. Please try again later\\!"
-			send_message(bot, msg)
+			sendMessage(bot, msg)
 		}
-		msg.Text = "This year's top poopers are:\n" + build_poodium_message(yearlyPoodium)
-		send_message(bot, msg)
+		msg.Text = "This year's top poopers are:\n" + buildPoodiumMessage(yearlyPoodium)
+		sendMessage(bot, msg)
 	default:
 		message := ""
 		if update.Message.Command() != "help" {
@@ -211,11 +211,11 @@ func handle_commands(bot *tg_bot.BotAPI, db *sql.DB, update tg_bot.Update, userI
 			"\t\t\t\t• _/bottom\\_poopers_ \\- Get the reverse poodium\n" +
 			"\t\t\t\t• _/poodium_ \\- Get the monthly poodium\n" +
 			"\t\t\t\t• _/poodium\\_year_ \\- Get the yearly poodium"
-		send_message(bot, msg)
+		sendMessage(bot, msg)
 	}
 }
 
-func build_poodium_message(topPoopers []repo.UserPoopCount) string {
+func buildPoodiumMessage(topPoopers []repo.UserPoopCount) string {
 	escape := func(s string) string {
 		s = strings.ReplaceAll(s, "_", "\\_")
 		s = strings.ReplaceAll(s, "-", "\\-")
@@ -226,8 +226,8 @@ func build_poodium_message(topPoopers []repo.UserPoopCount) string {
 		"🥉 " + escape(fmt.Sprint(topPoopers[2].Username)) + " \\- " + fmt.Sprint(topPoopers[2].PoopCount) + "💩"
 }
 
-func send_monthly_poodium(bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
-	topPoopers, err := repo.Get_Past_Month_Poodium(db)
+func sendMonthlyPoodium(bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
+	topPoopers, err := repo.GetPastMonthPoodium(db)
 	if err != nil {
 		log.Printf("Failed to get top poopers for monthly poodium: %v", err)
 		return
@@ -238,7 +238,7 @@ func send_monthly_poodium(bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
 	_, month, _ := pastMonth.Date()
 	monthStr := fmt.Sprintf("%02d", month)
 
-	messageText := "🏆 Poodium for " + monthNames[monthStr] + " 🏆\n" + build_poodium_message(topPoopers)
+	messageText := "🏆 Poodium for " + monthNames[monthStr] + " 🏆\n" + buildPoodiumMessage(topPoopers)
 	msg := tg_bot.NewMessage(chatID, messageText)
 	sentMsg, err := bot.Send(msg)
 	if err != nil {
@@ -256,8 +256,8 @@ func send_monthly_poodium(bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
 	}
 }
 
-func send_yearly_poodium(bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
-	topPoopers, err := repo.Get_Yearly_Poodium(db)
+func sendYearlyPoodium(bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
+	topPoopers, err := repo.GetYearlyPoodium(db)
 	if err != nil {
 		log.Printf("Failed to get top poopers for yearly poodium: %v", err)
 		return
@@ -265,12 +265,12 @@ func send_yearly_poodium(bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
 
 	year, _, _ := time.Now().Date()
 
-	messageText := "🏆 Poodium for " + fmt.Sprint(year) + " 🏆\n" + build_poodium_message(topPoopers)
+	messageText := "🏆 Poodium for " + fmt.Sprint(year) + " 🏆\n" + buildPoodiumMessage(topPoopers)
 	msg := tg_bot.NewMessage(chatID, messageText)
-	send_message(bot, msg)
+	sendMessage(bot, msg)
 }
 
-func handle_reactions(apiKey string, chatID int64, messageID int, sticker *tg_bot.Sticker) {
+func handleReactions(apiKey string, chatID int64, messageID int, sticker *tg_bot.Sticker) {
 	var reactEmoji = "💩"
 
 	if sticker != nil && sticker.Emoji == "💩" {
@@ -330,7 +330,7 @@ func addReaction(botToken string, chatID int64, messageID int, emoji string) err
 
 func main() {
 	fmt.Print("Starting bot...\n")
-	apiKey := get_api_key()
+	apiKey := getAPIKey()
 	if apiKey == "" {
 		log.Fatal("TELEGRAM_TOKEN is not set")
 	}
@@ -347,13 +347,13 @@ func main() {
 	updateConfig.AllowedUpdates = []string{"message", "message_reaction"}
 	updates := bot.GetUpdatesChan(updateConfig)
 
-	db := repo.Open_DB_Connection()
+	db := repo.OpenDBConnection()
 
 	// Schedule the monthly poodium message
 	monthlyCron := cron.New()
 	_, err = monthlyCron.AddFunc("0 0 1 * *", func() {
 		chatID := int64(GROUP_CHAT_ID)
-		send_monthly_poodium(bot, db, chatID)
+		sendMonthlyPoodium(bot, db, chatID)
 	})
 	if err != nil {
 		log.Fatalf("Failed to schedule monthly poodium message: %v", err)
@@ -364,7 +364,7 @@ func main() {
 	yearlyCron := cron.New()
 	_, err = yearlyCron.AddFunc("0 0 1 1 *", func() {
 		chatID := int64(GROUP_CHAT_ID)
-		send_yearly_poodium(bot, db, chatID)
+		sendYearlyPoodium(bot, db, chatID)
 	})
 	if err != nil {
 		log.Fatalf("Failed to schedule yearly poodium message: %v", err)
@@ -387,25 +387,29 @@ func main() {
 		case GROUP_CHAT_ID:
 			if update.Message.Text == "💩" || (update.Message.Sticker != nil && update.Message.Sticker.Emoji == "💩") {
 				log.Println("New poop detected!")
-				handle_new_poop(db, userID, username, messageID, int64(update.Message.Date))
-				handle_reactions(apiKey, chatID, messageID, update.Message.Sticker)
+				handleNewPoop(db, userID, username, messageID, int64(update.Message.Date))
+				handleReactions(apiKey, chatID, messageID, update.Message.Sticker)
 			}
 
 			if update.Message.Command() != "" {
-				handle_commands(bot, db, update, userID, msg)
+				handleCommands(bot, db, update, userID, msg)
 			}
 		case MY_CHAT_ID:
 			if update.Message.Text == "💩" || (update.Message.Sticker != nil && update.Message.Sticker.Emoji == "💩") {
 				userID = update.Message.ForwardFrom.ID
 				username = update.Message.ForwardFrom.UserName
 				messageID = -update.Message.MessageID
-				handle_new_poop(db, userID, username, messageID, int64(update.Message.ForwardDate))
-				handle_reactions(apiKey, chatID, update.Message.MessageID, update.Message.Sticker)
+				handleNewPoop(db, userID, username, messageID, int64(update.Message.ForwardDate))
+				handleReactions(apiKey, chatID, update.Message.MessageID, update.Message.Sticker)
+			}
+
+			if update.Message.Command() != "" {
+				handleCommands(bot, db, update, userID, msg)
 			}
 		default:
 			if update.Message.Command() != "" {
 				msg.Text = "Sorry, I only respond to commands in the group chat\\."
-				send_message(bot, msg)
+				sendMessage(bot, msg)
 			}
 		}
 	}
