@@ -148,7 +148,8 @@ func FormatHelpMessage(isUnknownCommand bool) string {
 		"\t\t\t\t• _/leaderboard_ \\- Get the monthly leaderboard\n" +
 		"\t\t\t\t• _/bottom\\_poopers_ \\- Get the reverse poodium\n" +
 		"\t\t\t\t• _/poodium_ \\- Get the monthly poodium\n" +
-		"\t\t\t\t• _/poodium\\_year_ \\- Get the yearly poodium"
+		"\t\t\t\t• _/poodium\\_year_ \\- Get the yearly poodium" +
+		"\t\t\t\t• _/poop\\_wrapped_ \\- Get your personalized Poop Wrapped"
 	return message
 }
 

@@ -19,3 +19,12 @@ start:
 
 deploy:
 	flyctl deploy
+
+test:
+	go test ./repository/... -v
+
+test-coverage:
+	go test ./repository/... -cover
+
+test-benchmark:
+	go test ./repository/... -bench=. -benchmem

@@ -18,6 +18,12 @@ type Repository interface {
 	GetMonthlyPoodium(ctx context.Context) ([]UserPoopCount, error)
 	GetPastMonthPoodium(ctx context.Context) ([]UserPoopCount, error)
 	GetYearlyPoodium(ctx context.Context) ([]UserPoopCount, error)
+	GetYearlyPoopCount(ctx context.Context, userID int64, year int) (int, error)
+	GetPoopsByHour(ctx context.Context, userID int64, year int) ([]HourDistribution, error)
+	GetPoopsByDayOfWeek(ctx context.Context, userID int64, year int) ([]DayOfWeekDistribution, error)
+	GetYearlyRanking(ctx context.Context, userID int64, year int) (YearlyRanking, error)
+	GetGroupYearlyStats(ctx context.Context, year int) ([]UserPoopCount, error)
+	GetGroupAwards(ctx context.Context, year int) ([]GroupAward, error)
 	HealthCheck(ctx context.Context) error
 }
 
@@ -75,6 +81,30 @@ func (r *SQLiteRepository) GetPastMonthPoodium(ctx context.Context) ([]UserPoopC
 
 func (r *SQLiteRepository) GetYearlyPoodium(ctx context.Context) ([]UserPoopCount, error) {
 	return GetYearlyPoodium(ctx, r.db)
+}
+
+func (r *SQLiteRepository) GetYearlyPoopCount(ctx context.Context, userID int64, year int) (int, error) {
+	return GetYearlyPoopCount(ctx, r.db, userID, year)
+}
+
+func (r *SQLiteRepository) GetPoopsByHour(ctx context.Context, userID int64, year int) ([]HourDistribution, error) {
+	return GetPoopsByHour(ctx, r.db, userID, year)
+}
+
+func (r *SQLiteRepository) GetPoopsByDayOfWeek(ctx context.Context, userID int64, year int) ([]DayOfWeekDistribution, error) {
+	return GetPoopsByDayOfWeek(ctx, r.db, userID, year)
+}
+
+func (r *SQLiteRepository) GetYearlyRanking(ctx context.Context, userID int64, year int) (YearlyRanking, error) {
+	return GetYearlyRanking(ctx, r.db, userID, year)
+}
+
+func (r *SQLiteRepository) GetGroupYearlyStats(ctx context.Context, year int) ([]UserPoopCount, error) {
+	return GetGroupYearlyStats(ctx, r.db, year)
+}
+
+func (r *SQLiteRepository) GetGroupAwards(ctx context.Context, year int) ([]GroupAward, error) {
+	return GetGroupAwards(ctx, r.db, year)
 }
 
 func (r *SQLiteRepository) HealthCheck(ctx context.Context) error {

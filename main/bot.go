@@ -229,7 +229,9 @@ func main() {
 			}
 
 			if update.Message.Command() != "" {
-				handlers.HandleCommand(ctx, bot, repository, update, userID, msg)
+				if update.Message.Command() != "poop_wrapped" {
+					handlers.HandleCommand(ctx, bot, repository, update, userID, msg)
+				}
 			}
 		case cfg.MyChatID:
 			if update.Message.Text == "💩" || (update.Message.Sticker != nil && update.Message.Sticker.Emoji == "💩") {

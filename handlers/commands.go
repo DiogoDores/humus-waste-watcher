@@ -116,6 +116,7 @@ func GetCommandHandlers() map[string]CommandHandler {
 		"bottom_poopers": HandleBottomPoopers,
 		"poodium":        HandlePoodium,
 		"poodium_year":   HandleYearlyPoodium,
+		"poop_wrapped":   HandlePersonalWrapped,
 		"help":           HandleHelp,
 	}
 }
