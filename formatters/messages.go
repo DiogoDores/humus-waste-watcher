@@ -2,52 +2,50 @@ package formatters
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
 	repo "src/repository"
 )
 
-var monthNames = map[string]string{
-	"01": "January",
-	"02": "February",
-	"03": "March",
-	"04": "April",
-	"05": "May",
-	"06": "June",
-	"07": "July",
-	"08": "August",
-	"09": "September",
-	"10": "October",
-	"11": "November",
-	"12": "December",
+// daysInMonth calculates the number of days in a given month and year using time package
+func daysInMonth(year int, month time.Month) int {
+	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+	firstOfNextMonth := firstOfMonth.AddDate(0, 1, 0)
+	return int(firstOfNextMonth.Sub(firstOfMonth).Hours() / 24)
 }
 
-func daysInMonth(month string, year int) int {
-	monthDays := map[string]int{
-		"January":   31,
-		"February":  28,
-		"March":     31,
-		"April":     30,
-		"May":       31,
-		"June":      30,
-		"July":      31,
-		"August":    31,
-		"September": 30,
-		"October":   31,
-		"November":  30,
-		"December":  31,
+// parseMonthString parses a month string (e.g., "01", "02") to time.Month
+func parseMonthString(monthStr string) (time.Month, error) {
+	switch monthStr {
+	case "01":
+		return time.January, nil
+	case "02":
+		return time.February, nil
+	case "03":
+		return time.March, nil
+	case "04":
+		return time.April, nil
+	case "05":
+		return time.May, nil
+	case "06":
+		return time.June, nil
+	case "07":
+		return time.July, nil
+	case "08":
+		return time.August, nil
+	case "09":
+		return time.September, nil
+	case "10":
+		return time.October, nil
+	case "11":
+		return time.November, nil
+	case "12":
+		return time.December, nil
+	default:
+		return time.January, fmt.Errorf("invalid month string: %s", monthStr)
 	}
-
-	if month == "February" && isLeapYear(year) {
-		return 29
-	}
-
-	return monthDays[month]
-}
-
-func isLeapYear(year int) bool {
-	return (year%4 == 0 && year%100 != 0) || (year%400 == 0)
 }
 
 func EscapeMarkdownV2(s string) string {
@@ -81,18 +79,26 @@ func BuildPoodiumMessage(topPoopers []repo.UserPoopCount) string {
 }
 
 func FormatPoopLog(username string, globalPoopCount int, monthlyPoopCounts []repo.MonthlyPoopCount, daysWithoutPoop int, maxStreak int, day string, poops int) string {
-	year := time.Now().Year()
+	now := time.Now()
+	year := now.Year()
 	monthlyAverages := make(map[string]float64)
+
 	for _, mpc := range monthlyPoopCounts {
 		yearMonth := mpc.Month
-		month := yearMonth[5:]
-		daysInMonthCount := daysInMonth(monthNames[month], year)
-
-		if time.Now().Month().String() == monthNames[month] {
-			daysInMonthCount = time.Now().Day()
+		monthStr := yearMonth[5:]
+		month, err := parseMonthString(monthStr)
+		if err != nil {
+			log.Printf("Invalid month string: %s", monthStr)
+			continue
 		}
 
-		monthlyAverages[month] = float64(mpc.PoopCount) / float64(daysInMonthCount)
+		daysInMonthCount := daysInMonth(year, month)
+
+		if now.Year() == year && now.Month() == month {
+			daysInMonthCount = now.Day()
+		}
+
+		monthlyAverages[monthStr] = float64(mpc.PoopCount) / float64(daysInMonthCount)
 	}
 
 	yearlyAverage := float64(globalPoopCount) / float64(time.Now().YearDay())
@@ -109,8 +115,14 @@ func FormatPoopLog(username string, globalPoopCount int, monthlyPoopCounts []rep
 
 	for _, mpc := range monthlyPoopCounts {
 		yearMonth := mpc.Month
-		month := yearMonth[5:]
-		msg += fmt.Sprintf("🗓 %s:  `%d poops`   \\(📊 Avg:   `%.2f per day`\\)\n", monthNames[month], mpc.PoopCount, monthlyAverages[month])
+		monthStr := yearMonth[5:]
+		month, err := parseMonthString(monthStr)
+		if err != nil {
+			log.Printf("Invalid month string: %s", monthStr)
+			continue
+		}
+		monthName := month.String()
+		msg += fmt.Sprintf("🗓 %s:  `%d poops`   \\(📊 Avg:   `%.2f per day`\\)\n", monthName, mpc.PoopCount, monthlyAverages[monthStr])
 	}
 
 	return msg
@@ -149,5 +161,10 @@ func FormatYearlyPoodiumTitle(year int) string {
 }
 
 func GetMonthName(monthStr string) string {
-	return monthNames[monthStr]
+	month, err := parseMonthString(monthStr)
+	if err != nil {
+		log.Printf("Invalid month string: %s", monthStr)
+		return "Unknown"
+	}
+	return month.String()
 }

@@ -23,7 +23,7 @@ import (
 
 type AddReactionRequest struct {
 	ChatID    int64          `json:"chat_id"`
-	MessageID int            `json:"message_id"`
+	MessageID int64          `json:"message_id"`
 	Reaction  []ReactionType `json:"reaction"`
 	IsBig     bool           `json:"is_big"`
 }
@@ -41,7 +41,7 @@ func sendMessage(bot *tg_bot.BotAPI, msg tg_bot.MessageConfig) {
 	}
 }
 
-func handleNewPoop(ctx context.Context, db *sql.DB, userId int64, username string, msgId int, timestamp int64) {
+func handleNewPoop(ctx context.Context, db *sql.DB, userId int64, username string, msgId int64, timestamp int64) {
 	t := time.Unix(timestamp, 0).UTC()
 	sqliteTimestamp := t.Format("2006-01-02 15:04:05")
 
@@ -97,7 +97,7 @@ func sendYearlyPoodium(ctx context.Context, bot *tg_bot.BotAPI, db *sql.DB, chat
 	sendMessage(bot, msg)
 }
 
-func handleReactions(cfg *config.Config, chatID int64, messageID int, sticker *tg_bot.Sticker) {
+func handleReactions(cfg *config.Config, chatID int64, messageID int64, sticker *tg_bot.Sticker) {
 	var reactEmoji = "💩"
 
 	if sticker != nil && sticker.Emoji == "💩" {
@@ -127,7 +127,7 @@ func handleReactions(cfg *config.Config, chatID int64, messageID int, sticker *t
 	}
 }
 
-func addReaction(cfg *config.Config, chatID int64, messageID int, emoji string) error {
+func addReaction(cfg *config.Config, chatID int64, messageID int64, emoji string) error {
 	url := fmt.Sprintf("%s%s/setMessageReaction", cfg.APIBaseURL, cfg.TelegramToken)
 
 	reactionRequest := AddReactionRequest{
@@ -223,8 +223,8 @@ func main() {
 		case cfg.GroupChatID:
 			if update.Message.Text == "💩" || (update.Message.Sticker != nil && update.Message.Sticker.Emoji == "💩") {
 				log.Println("New poop detected!")
-				handleNewPoop(ctx, db, userID, username, messageID, int64(update.Message.Date))
-				handleReactions(cfg, chatID, messageID, update.Message.Sticker)
+				handleNewPoop(ctx, db, userID, username, int64(messageID), int64(update.Message.Date))
+				handleReactions(cfg, chatID, int64(messageID), update.Message.Sticker)
 			}
 
 			if update.Message.Command() != "" {
@@ -235,8 +235,8 @@ func main() {
 				userID = update.Message.ForwardFrom.ID
 				username = update.Message.ForwardFrom.UserName
 				messageID = -update.Message.MessageID
-				handleNewPoop(ctx, db, userID, username, messageID, int64(update.Message.ForwardDate))
-				handleReactions(cfg, chatID, update.Message.MessageID, update.Message.Sticker)
+				handleNewPoop(ctx, db, userID, username, int64(messageID), int64(update.Message.ForwardDate))
+				handleReactions(cfg, chatID, int64(update.Message.MessageID), update.Message.Sticker)
 			}
 
 			if update.Message.Command() != "" {

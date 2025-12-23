@@ -22,7 +22,7 @@ type UserPoopCount struct {
 	PoopCount int
 }
 
-func LogPoop(ctx context.Context, db *sql.DB, userID int64, username string, msgId int, timestamp string, unixTimestamp int64) error {
+func LogPoop(ctx context.Context, db *sql.DB, userID int64, username string, msgId int64, timestamp string, unixTimestamp int64) error {
 	query := `
 	INSERT INTO poop_tracker (user_id, username, message_id, timestamp, created_at_unix)
 	VALUES (?, ?, ?, ?, ?)
