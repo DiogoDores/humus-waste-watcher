@@ -334,6 +334,10 @@ func OpenDBConnection(cfg *config.Config) (*sql.DB, error) {
 	return db, nil
 }
 
+func NewRepository(db *sql.DB) Repository {
+	return NewSQLiteRepository(db)
+}
+
 func HealthCheck(ctx context.Context, db *sql.DB) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()

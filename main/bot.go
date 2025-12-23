@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -41,11 +40,11 @@ func sendMessage(bot *tg_bot.BotAPI, msg tg_bot.MessageConfig) {
 	}
 }
 
-func handleNewPoop(ctx context.Context, db *sql.DB, userId int64, username string, msgId int64, timestamp int64) {
+func handleNewPoop(ctx context.Context, r repo.Repository, userId int64, username string, msgId int64, timestamp int64) {
 	t := time.Unix(timestamp, 0).UTC()
 	sqliteTimestamp := t.Format("2006-01-02 15:04:05")
 
-	err := repo.LogPoop(ctx, db, userId, username, msgId, sqliteTimestamp, t.Unix())
+	err := r.LogPoop(ctx, userId, username, msgId, sqliteTimestamp, t.Unix())
 	if err != nil {
 		log.Printf("Failed to log poop: %v", err)
 		return
@@ -53,8 +52,8 @@ func handleNewPoop(ctx context.Context, db *sql.DB, userId int64, username strin
 	log.Println("Poop logged successfully!")
 }
 
-func sendMonthlyPoodium(ctx context.Context, bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
-	topPoopers, err := repo.GetPastMonthPoodium(ctx, db)
+func sendMonthlyPoodium(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, chatID int64) {
+	topPoopers, err := r.GetPastMonthPoodium(ctx)
 	if err != nil {
 		log.Printf("Failed to get top poopers for monthly poodium: %v", err)
 		return
@@ -84,8 +83,8 @@ func sendMonthlyPoodium(ctx context.Context, bot *tg_bot.BotAPI, db *sql.DB, cha
 	}
 }
 
-func sendYearlyPoodium(ctx context.Context, bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
-	topPoopers, err := repo.GetYearlyPoodium(ctx, db)
+func sendYearlyPoodium(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, chatID int64) {
+	topPoopers, err := r.GetYearlyPoodium(ctx)
 	if err != nil {
 		log.Printf("Failed to get top poopers for yearly poodium: %v", err)
 		return
@@ -185,12 +184,14 @@ func main() {
 	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
+	repository := repo.NewRepository(db)
+
 	ctx := context.Background()
 
 	// Schedule the monthly poodium message
 	monthlyCron := cron.New()
 	_, err = monthlyCron.AddFunc("0 0 1 * *", func() {
-		sendMonthlyPoodium(ctx, bot, db, cfg.GroupChatID)
+		sendMonthlyPoodium(ctx, bot, repository, cfg.GroupChatID)
 	})
 	if err != nil {
 		log.Fatalf("Failed to schedule monthly poodium message: %v", err)
@@ -200,7 +201,7 @@ func main() {
 	// Schedule the yearly poodium message
 	yearlyCron := cron.New()
 	_, err = yearlyCron.AddFunc("0 0 1 1 *", func() {
-		sendYearlyPoodium(ctx, bot, db, cfg.GroupChatID)
+		sendYearlyPoodium(ctx, bot, repository, cfg.GroupChatID)
 	})
 	if err != nil {
 		log.Fatalf("Failed to schedule yearly poodium message: %v", err)
@@ -223,24 +224,24 @@ func main() {
 		case cfg.GroupChatID:
 			if update.Message.Text == "💩" || (update.Message.Sticker != nil && update.Message.Sticker.Emoji == "💩") {
 				log.Println("New poop detected!")
-				handleNewPoop(ctx, db, userID, username, int64(messageID), int64(update.Message.Date))
+				handleNewPoop(ctx, repository, userID, username, int64(messageID), int64(update.Message.Date))
 				handleReactions(cfg, chatID, int64(messageID), update.Message.Sticker)
 			}
 
 			if update.Message.Command() != "" {
-				handlers.HandleCommand(ctx, bot, db, update, userID, msg)
+				handlers.HandleCommand(ctx, bot, repository, update, userID, msg)
 			}
 		case cfg.MyChatID:
 			if update.Message.Text == "💩" || (update.Message.Sticker != nil && update.Message.Sticker.Emoji == "💩") {
 				userID = update.Message.ForwardFrom.ID
 				username = update.Message.ForwardFrom.UserName
 				messageID = -update.Message.MessageID
-				handleNewPoop(ctx, db, userID, username, int64(messageID), int64(update.Message.ForwardDate))
+				handleNewPoop(ctx, repository, userID, username, int64(messageID), int64(update.Message.ForwardDate))
 				handleReactions(cfg, chatID, int64(update.Message.MessageID), update.Message.Sticker)
 			}
 
 			if update.Message.Command() != "" {
-				handlers.HandleCommand(ctx, bot, db, update, userID, msg)
+				handlers.HandleCommand(ctx, bot, repository, update, userID, msg)
 			}
 		default:
 			if update.Message.Command() != "" {
