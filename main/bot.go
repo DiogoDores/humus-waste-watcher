@@ -7,20 +7,17 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
 
+	"src/config"
 	repo "src/repository"
-	"src/utils"
 
 	tg_bot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/robfig/cron/v3"
 )
-
-const telegramAPIBase = "https://api.telegram.org/bot"
 
 type AddReactionRequest struct {
 	ChatID    int64          `json:"chat_id"`
@@ -75,23 +72,6 @@ func daysInMonth(month string, year int) int {
 
 func isLeapYear(year int) bool {
 	return (year%4 == 0 && year%100 != 0) || (year%400 == 0)
-}
-
-var GROUP_CHAT_ID = int64(-1002481034087)
-var MY_CHAT_ID = int64(824870685)
-
-var STRUGGLE_POOP_ID = "AgADOxkAAgTYWVE"
-var ESNOOPI_POOP_ID = "AgADRhoAAhq7WVE"
-var JURASSIC_POOP_ID = "AgADQRcAAu99WVE"
-var GIRLY_POOP_ID = "AgADrxkAAtHnYFE"
-var SCARED_POOP_ID = "AgADfBkAAgwIYVE"
-var SUS_POOP_ID = "AgADcxgAAvVG0FE"
-
-func getAPIKey() string {
-	if os.Getenv("TELEGRAM_TOKEN") == "" {
-		utils.LoadEnv()
-	}
-	return os.Getenv("TELEGRAM_TOKEN")
 }
 
 func sendMessage(bot *tg_bot.BotAPI, msg tg_bot.MessageConfig) {
@@ -270,29 +250,29 @@ func sendYearlyPoodium(bot *tg_bot.BotAPI, db *sql.DB, chatID int64) {
 	sendMessage(bot, msg)
 }
 
-func handleReactions(apiKey string, chatID int64, messageID int, sticker *tg_bot.Sticker) {
+func handleReactions(cfg *config.Config, chatID int64, messageID int, sticker *tg_bot.Sticker) {
 	var reactEmoji = "💩"
 
 	if sticker != nil && sticker.Emoji == "💩" {
 		if sticker.SetName == "Poopers2" {
 			switch sticker.FileUniqueID {
-			case STRUGGLE_POOP_ID:
+			case cfg.StickerIDs["struggle"]:
 				reactEmoji = "😢"
-			case ESNOOPI_POOP_ID:
+			case cfg.StickerIDs["esnoopi"]:
 				reactEmoji = "🎉"
-			case JURASSIC_POOP_ID:
+			case cfg.StickerIDs["jurassic"]:
 				reactEmoji = "🏆"
-			case GIRLY_POOP_ID:
+			case cfg.StickerIDs["girly"]:
 				reactEmoji = "💅"
-			case SCARED_POOP_ID:
+			case cfg.StickerIDs["scared"]:
 				reactEmoji = "🫡"
-			case SUS_POOP_ID:
+			case cfg.StickerIDs["sus"]:
 				reactEmoji = "🤨"
 			}
 		}
 	}
 
-	err := addReaction(apiKey, chatID, messageID, reactEmoji)
+	err := addReaction(cfg, chatID, messageID, reactEmoji)
 	if err != nil {
 		log.Printf("Failed to add reaction: %v", err)
 	} else {
@@ -300,8 +280,8 @@ func handleReactions(apiKey string, chatID int64, messageID int, sticker *tg_bot
 	}
 }
 
-func addReaction(botToken string, chatID int64, messageID int, emoji string) error {
-	url := fmt.Sprintf("%s%s/setMessageReaction", telegramAPIBase, botToken)
+func addReaction(cfg *config.Config, chatID int64, messageID int, emoji string) error {
+	url := fmt.Sprintf("%s%s/setMessageReaction", cfg.APIBaseURL, cfg.TelegramToken)
 
 	reactionRequest := AddReactionRequest{
 		ChatID:    chatID,
@@ -330,12 +310,13 @@ func addReaction(botToken string, chatID int64, messageID int, emoji string) err
 
 func main() {
 	fmt.Print("Starting bot...\n")
-	apiKey := getAPIKey()
-	if apiKey == "" {
-		log.Fatal("TELEGRAM_TOKEN is not set")
+
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	bot, err := tg_bot.NewBotAPI(apiKey)
+	bot, err := tg_bot.NewBotAPI(cfg.TelegramToken)
 	if err != nil {
 		log.Fatalf("Failed to create new bot instance: %v", err)
 	}
@@ -347,13 +328,12 @@ func main() {
 	updateConfig.AllowedUpdates = []string{"message", "message_reaction"}
 	updates := bot.GetUpdatesChan(updateConfig)
 
-	db := repo.OpenDBConnection()
+	db := repo.OpenDBConnection(cfg)
 
 	// Schedule the monthly poodium message
 	monthlyCron := cron.New()
 	_, err = monthlyCron.AddFunc("0 0 1 * *", func() {
-		chatID := int64(GROUP_CHAT_ID)
-		sendMonthlyPoodium(bot, db, chatID)
+		sendMonthlyPoodium(bot, db, cfg.GroupChatID)
 	})
 	if err != nil {
 		log.Fatalf("Failed to schedule monthly poodium message: %v", err)
@@ -363,8 +343,7 @@ func main() {
 	// Schedule the yearly poodium message
 	yearlyCron := cron.New()
 	_, err = yearlyCron.AddFunc("0 0 1 1 *", func() {
-		chatID := int64(GROUP_CHAT_ID)
-		sendYearlyPoodium(bot, db, chatID)
+		sendYearlyPoodium(bot, db, cfg.GroupChatID)
 	})
 	if err != nil {
 		log.Fatalf("Failed to schedule yearly poodium message: %v", err)
@@ -384,23 +363,23 @@ func main() {
 		chatID := update.Message.Chat.ID
 
 		switch chatID {
-		case GROUP_CHAT_ID:
+		case cfg.GroupChatID:
 			if update.Message.Text == "💩" || (update.Message.Sticker != nil && update.Message.Sticker.Emoji == "💩") {
 				log.Println("New poop detected!")
 				handleNewPoop(db, userID, username, messageID, int64(update.Message.Date))
-				handleReactions(apiKey, chatID, messageID, update.Message.Sticker)
+				handleReactions(cfg, chatID, messageID, update.Message.Sticker)
 			}
 
 			if update.Message.Command() != "" {
 				handleCommands(bot, db, update, userID, msg)
 			}
-		case MY_CHAT_ID:
+		case cfg.MyChatID:
 			if update.Message.Text == "💩" || (update.Message.Sticker != nil && update.Message.Sticker.Emoji == "💩") {
 				userID = update.Message.ForwardFrom.ID
 				username = update.Message.ForwardFrom.UserName
 				messageID = -update.Message.MessageID
 				handleNewPoop(db, userID, username, messageID, int64(update.Message.ForwardDate))
-				handleReactions(apiKey, chatID, update.Message.MessageID, update.Message.Sticker)
+				handleReactions(cfg, chatID, update.Message.MessageID, update.Message.Sticker)
 			}
 
 			if update.Message.Command() != "" {

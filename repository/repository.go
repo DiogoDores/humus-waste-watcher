@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
-	"src/utils"
+
+	"src/config"
 
 	_ "modernc.org/sqlite"
 )
@@ -18,13 +18,6 @@ type MonthlyPoopCount struct {
 type UserPoopCount struct {
 	Username  string
 	PoopCount int
-}
-
-func getDBPath() string {
-	if os.Getenv("DB_PATH") == "" {
-		utils.LoadEnv()
-	}
-	return os.Getenv("DB_PATH")
 }
 
 func LogPoop(db *sql.DB, userID int64, username string, msgId int, timestamp string, unixTimestamp int64) error {
@@ -323,15 +316,11 @@ func createTable(db *sql.DB) error {
 	return err
 }
 
-func OpenDBConnection() *sql.DB {
-
-	dbPath := getDBPath()
-	if dbPath == "" {
-		log.Fatal("DB_PATH is not set")
+func OpenDBConnection(cfg *config.Config) *sql.DB {
+	db, err := sql.Open("sqlite", cfg.DBPath)
+	if err != nil {
+		log.Fatalf("Failed to connect to SQLite database: %v", err)
 	}
-
-	db, err := sql.Open("sqlite", dbPath)
-	utils.CheckError("Failed to connect to SQLite database", err)
 
 	err = createTable(db)
 	if err != nil {
