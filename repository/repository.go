@@ -316,17 +316,18 @@ func createTable(db *sql.DB) error {
 	return err
 }
 
-func OpenDBConnection(cfg *config.Config) *sql.DB {
+func OpenDBConnection(cfg *config.Config) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", cfg.DBPath)
 	if err != nil {
-		log.Fatalf("Failed to connect to SQLite database: %v", err)
+		return nil, fmt.Errorf("failed to connect to SQLite database: %w", err)
 	}
 
 	err = createTable(db)
 	if err != nil {
-		log.Fatalf("Failed to create table: %v", err)
+		db.Close()
+		return nil, fmt.Errorf("failed to create table: %w", err)
 	}
 
 	log.Println("Table created or already exists.")
-	return db
+	return db, nil
 }

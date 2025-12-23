@@ -328,7 +328,10 @@ func main() {
 	updateConfig.AllowedUpdates = []string{"message", "message_reaction"}
 	updates := bot.GetUpdatesChan(updateConfig)
 
-	db := repo.OpenDBConnection(cfg)
+	db, err := repo.OpenDBConnection(cfg)
+	if err != nil {
+		log.Fatalf("Failed to open database connection: %v", err)
+	}
 
 	// Schedule the monthly poodium message
 	monthlyCron := cron.New()

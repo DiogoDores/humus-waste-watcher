@@ -1,24 +1,24 @@
 package utils
 
 import (
-	"log"
+	"fmt"
 	"strconv"
+
 	dotenv "github.com/joho/godotenv"
 )
 
-func CheckError(msg string, e error) {
-	if e != nil {
-		log.Fatalf("%s: %v", msg, e)
-	}
-}
-
-func Stoi(s string) int {
+func Stoi(s string) (int, error) {
 	i, err := strconv.Atoi(s)
-	CheckError("Failed to convert string to int", err)
-	return i
+	if err != nil {
+		return 0, fmt.Errorf("failed to convert string to int: %w", err)
+	}
+	return i, nil
 }
 
-func LoadEnv() {
+func LoadEnv() error {
 	err := dotenv.Load(".env")
-	CheckError("Failed to load environment variables", err)
+	if err != nil {
+		return fmt.Errorf("failed to load environment variables: %w", err)
+	}
+	return nil
 }
