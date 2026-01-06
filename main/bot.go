@@ -96,6 +96,35 @@ func sendYearlyPoodium(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repositor
 	sendMessage(bot, msg)
 }
 
+func sendGroupWrapped(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, chatID int64) {
+	year := 2025
+
+	awards, err := r.GetGroupAwards(ctx, year)
+	if err != nil {
+		log.Printf("Failed to get group awards: %v", err)
+		return
+	}
+
+	messageText := formatters.FormatGroupWrappedTitle("Year", year) + formatters.BuildGroupAwardsMessage(awards)
+	msg := tg_bot.NewMessage(chatID, messageText)
+	msg.ParseMode = "MarkdownV2"
+
+	sentMsg, err := bot.Send(msg)
+	if err != nil {
+		log.Printf("Failed to send group wrapped message: %v", err)
+		return
+	}
+
+	_, err = bot.Send(tg_bot.PinChatMessageConfig{
+		ChatID:              chatID,
+		MessageID:           sentMsg.MessageID,
+		DisableNotification: true,
+	})
+	if err != nil {
+		log.Printf("Failed to pin group wrapped message: %v", err)
+	}
+}
+
 func handleReactions(cfg *config.Config, chatID int64, messageID int64, sticker *tg_bot.Sticker) {
 	var reactEmoji = "💩"
 
@@ -229,8 +258,16 @@ func main() {
 			}
 
 			if update.Message.Command() != "" {
-				if update.Message.Command() != "poop_wrapped" {
-					handlers.HandleCommand(ctx, bot, repository, update, userID, msg)
+				if update.Message.Command() == "poop_wrapped" {
+					currentYear := time.Now().Year()
+					if currentYear < 2026 {
+						msg.Text = "This feature will be available on the 1st of January 2026"
+						bot.Send(msg)
+					} else {
+						handlers.HandleCommand(ctx, bot, repository, update, userID, msg, cfg.GroupChatID)
+					}
+				} else {
+					handlers.HandleCommand(ctx, bot, repository, update, userID, msg, cfg.GroupChatID)
 				}
 			}
 		case cfg.MyChatID:
@@ -243,7 +280,7 @@ func main() {
 			}
 
 			if update.Message.Command() != "" {
-				handlers.HandleCommand(ctx, bot, repository, update, userID, msg)
+				handlers.HandleCommand(ctx, bot, repository, update, userID, msg, cfg.GroupChatID)
 			}
 		default:
 			if update.Message.Command() != "" {

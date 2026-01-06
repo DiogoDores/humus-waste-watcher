@@ -148,7 +148,7 @@ func FormatHelpMessage(isUnknownCommand bool) string {
 		"\t\t\t\t• _/leaderboard_ \\- Get the monthly leaderboard\n" +
 		"\t\t\t\t• _/bottom\\_poopers_ \\- Get the reverse poodium\n" +
 		"\t\t\t\t• _/poodium_ \\- Get the monthly poodium\n" +
-		"\t\t\t\t• _/poodium\\_year_ \\- Get the yearly poodium" +
+		"\t\t\t\t• _/poodium\\_year_ \\- Get the yearly poodium\n" +
 		"\t\t\t\t• _/poop\\_wrapped_ \\- Get your personalized Poop Wrapped"
 	return message
 }
@@ -168,4 +168,32 @@ func GetMonthName(monthStr string) string {
 		return "Unknown"
 	}
 	return month.String()
+}
+
+func FormatGroupWrappedTitle(period string, year int) string {
+	return fmt.Sprintf("🎉 Poop Wrapped Awards %s %d 🎉\n\n", period, year)
+}
+
+func BuildGroupAwardsMessage(awards []repo.GroupAward) string {
+	if len(awards) == 0 {
+		return "Not enough data for awards\\."
+	}
+
+	escape := EscapeMarkdownV2
+	msg := "🏆 *Awards:*\n\n"
+
+	for _, award := range awards {
+		// Ensure there's exactly one space after the emoji
+		emoji := award.Emoji
+		if emoji != "" && !strings.HasSuffix(emoji, " ") {
+			emoji += " "
+		}
+		msg += fmt.Sprintf("%s*%s*: @%s \\(%s\\)\n",
+			emoji,
+			escape(award.AwardName),
+			escape(award.Winner),
+			escape(award.Value))
+	}
+
+	return msg
 }

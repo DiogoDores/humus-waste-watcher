@@ -21,6 +21,7 @@ type Repository interface {
 	GetYearlyPoopCount(ctx context.Context, userID int64, year int) (int, error)
 	GetPoopsByHour(ctx context.Context, userID int64, year int) ([]HourDistribution, error)
 	GetPoopsByDayOfWeek(ctx context.Context, userID int64, year int) ([]DayOfWeekDistribution, error)
+	GetPoopsByWeekAndDay(ctx context.Context, userID int64, year int) ([]WeekDayPoopCount, error)
 	GetYearlyRanking(ctx context.Context, userID int64, year int) (YearlyRanking, error)
 	GetGroupYearlyStats(ctx context.Context, year int) ([]UserPoopCount, error)
 	GetGroupAwards(ctx context.Context, year int) ([]GroupAward, error)
@@ -93,6 +94,10 @@ func (r *SQLiteRepository) GetPoopsByHour(ctx context.Context, userID int64, yea
 
 func (r *SQLiteRepository) GetPoopsByDayOfWeek(ctx context.Context, userID int64, year int) ([]DayOfWeekDistribution, error) {
 	return GetPoopsByDayOfWeek(ctx, r.db, userID, year)
+}
+
+func (r *SQLiteRepository) GetPoopsByWeekAndDay(ctx context.Context, userID int64, year int) ([]WeekDayPoopCount, error) {
+	return GetPoopsByWeekAndDay(ctx, r.db, userID, year)
 }
 
 func (r *SQLiteRepository) GetYearlyRanking(ctx context.Context, userID int64, year int) (YearlyRanking, error) {

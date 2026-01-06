@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -21,6 +23,12 @@ type HourDistribution struct {
 type DayOfWeekDistribution struct {
 	DayOfTheWeek string
 	PoopCount    int
+}
+
+type WeekDayPoopCount struct {
+	WeekNumber int // Week of year (1-52)
+	DayOfWeek  int // 0=Sunday, 1=Monday, ..., 6=Saturday
+	PoopCount  int
 }
 
 type PoopPersonality struct {
@@ -452,6 +460,68 @@ func GetPoopsByDayOfWeek(ctx context.Context, db *sql.DB, userID int64, year int
 	return results, nil
 }
 
+func GetPoopsByWeekAndDay(ctx context.Context, db *sql.DB, userID int64, year int) ([]WeekDayPoopCount, error) {
+	// Calculate week number starting from first Sunday of the year (matching Python's calculation)
+	// This ensures the heatmap week numbers align correctly
+	// Python: days_until_sunday = (6 - jan_1.weekday()) % 7
+	// SQLite: %w returns 0=Sunday, 1=Monday, ..., 6=Saturday
+	// So: days_until_sunday = (7 - CAST(strftime('%w', jan_1) AS INTEGER)) % 7
+	query := `
+	WITH jan_1 AS (
+		SELECT date(? || '-01-01') AS jan_first, CAST(strftime('%w', ? || '-01-01') AS INTEGER) AS jan_1_dow
+	),
+	first_sunday AS (
+		SELECT 
+			CASE 
+				WHEN jan_1_dow = 0 
+				THEN jan_first
+				ELSE date(jan_first, '+' || ((7 - jan_1_dow) % 7) || ' days')
+			END AS first_sun
+		FROM jan_1
+	),
+	week_calc AS (
+		SELECT 
+			timestamp,
+			CAST(strftime('%w', timestamp) AS INTEGER) AS day_of_week,
+			CAST((julianday(date(timestamp)) - julianday((SELECT first_sun FROM first_sunday))) AS INTEGER) AS days_diff
+		FROM poop_tracker, first_sunday
+		WHERE user_id = ? AND strftime('%Y', timestamp) = ?
+	)
+	SELECT 
+		CASE 
+			WHEN days_diff < 0 THEN 1
+			ELSE CAST(days_diff / 7 AS INTEGER) + 1
+		END AS week_number,
+		day_of_week,
+		COUNT(*) AS poop_count
+	FROM week_calc
+	GROUP BY week_number, day_of_week
+	ORDER BY week_number, day_of_week;
+	`
+
+	yearStr := strconv.Itoa(year)
+	rows, err := db.QueryContext(ctx, query, yearStr, yearStr, userID, yearStr)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []WeekDayPoopCount
+	for rows.Next() {
+		var wd WeekDayPoopCount
+		if err := rows.Scan(&wd.WeekNumber, &wd.DayOfWeek, &wd.PoopCount); err != nil {
+			return nil, err
+		}
+		results = append(results, wd)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
+
 func GetYearlyRanking(ctx context.Context, db *sql.DB, userID int64, year int) (YearlyRanking, error) {
 	query := `
 	WITH user_stats AS (
@@ -712,9 +782,30 @@ func createTable(ctx context.Context, db *sql.DB) error {
 }
 
 func OpenDBConnection(cfg *config.Config) (*sql.DB, error) {
+	log.Printf("Opening database connection at: %s", cfg.DBPath)
+
+	// Ensure the directory exists before opening the database
+	dbDir := filepath.Dir(cfg.DBPath)
+	if dbDir != "" && dbDir != "." {
+		log.Printf("Ensuring database directory exists: %s", dbDir)
+		if err := os.MkdirAll(dbDir, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create database directory %s: %w", dbDir, err)
+		}
+		if info, err := os.Stat(dbDir); err != nil {
+			return nil, fmt.Errorf("database directory %s does not exist or is not accessible: %w", dbDir, err)
+		} else {
+			log.Printf("Database directory exists: %s (mode: %v)", dbDir, info.Mode())
+		}
+	}
+
 	db, err := sql.Open("sqlite", cfg.DBPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to SQLite database: %w", err)
+		return nil, fmt.Errorf("failed to connect to SQLite database at %s: %w", cfg.DBPath, err)
+	}
+
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to ping database at %s: %w", cfg.DBPath, err)
 	}
 
 	ctx := context.Background()
@@ -724,6 +815,7 @@ func OpenDBConnection(cfg *config.Config) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to create table: %w", err)
 	}
 
+	log.Printf("Database opened successfully at %s", cfg.DBPath)
 	log.Println("Table created or already exists.")
 	return db, nil
 }

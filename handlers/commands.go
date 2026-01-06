@@ -11,10 +11,10 @@ import (
 	tg_bot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type CommandHandler func(ctx context.Context, bot *tg_bot.BotAPI, repo repo.Repository, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig) error
+type CommandHandler func(ctx context.Context, bot *tg_bot.BotAPI, repo repo.Repository, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig, groupChatID int64) error
 
 // HandleMyPoopLog handles the /my_poop_log command
-func HandleMyPoopLog(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig) error {
+func HandleMyPoopLog(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig, groupChatID int64) error {
 	globalPoopCount, errGlobal := r.GetGlobalPoopCount(ctx, userId)
 	monthlyPoopCounts, errMonthly := r.GetMonthlyPoopStats(ctx, userId)
 	daysWithoutPoop, errNoPoop := r.GetDaysWithoutPoop(ctx, userId)
@@ -34,7 +34,7 @@ func HandleMyPoopLog(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository,
 }
 
 // HandleLeaderboard handles the /leaderboard command
-func HandleLeaderboard(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig) error {
+func HandleLeaderboard(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig, groupChatID int64) error {
 	monthlyLeaderboard, err := r.GetMonthlyLeaderboard(ctx)
 	if err != nil {
 		msg.Text = "Sorry, I couldn't retrieve the monthly leaderboard\\. Please try again later\\!"
@@ -51,7 +51,7 @@ func HandleLeaderboard(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repositor
 }
 
 // HandleBottomPoopers handles the /bottom_poopers command
-func HandleBottomPoopers(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig) error {
+func HandleBottomPoopers(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig, groupChatID int64) error {
 	bottomPoopers, err := r.GetBottomPoopers(ctx)
 	if err != nil {
 		msg.Text = "Sorry, I couldn't retrieve the bottom poopers\\. Please try again later\\!"
@@ -68,7 +68,7 @@ func HandleBottomPoopers(ctx context.Context, bot *tg_bot.BotAPI, r repo.Reposit
 }
 
 // HandlePoodium handles the /poodium command
-func HandlePoodium(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig) error {
+func HandlePoodium(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig, groupChatID int64) error {
 	monthlyPoodium, err := r.GetMonthlyPoodium(ctx)
 	if err != nil {
 		msg.Text = "Sorry, I couldn't retrieve the monthly poodium\\. Please try again later\\!"
@@ -85,7 +85,7 @@ func HandlePoodium(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, u
 }
 
 // HandleYearlyPoodium handles the /poodium_year command
-func HandleYearlyPoodium(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig) error {
+func HandleYearlyPoodium(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig, groupChatID int64) error {
 	yearlyPoodium, err := r.GetYearlyPoodium(ctx)
 	if err != nil {
 		msg.Text = "Sorry, I couldn't retrieve the yearly poodium\\. Please try again later\\!"
@@ -102,7 +102,7 @@ func HandleYearlyPoodium(ctx context.Context, bot *tg_bot.BotAPI, r repo.Reposit
 }
 
 // HandleHelp handles the /help command and unknown commands
-func HandleHelp(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig) error {
+func HandleHelp(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig, groupChatID int64) error {
 	isUnknownCommand := update.Message.Command() != "help"
 	msg.Text = formatters.FormatHelpMessage(isUnknownCommand)
 	_, err := bot.Send(msg)
@@ -122,7 +122,7 @@ func GetCommandHandlers() map[string]CommandHandler {
 }
 
 // HandleCommand routes commands to their respective handlers
-func HandleCommand(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig) {
+func HandleCommand(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, update tg_bot.Update, userId int64, msg tg_bot.MessageConfig, groupChatID int64) {
 	log.Println("Command received:", update.Message.Command())
 
 	handlers := GetCommandHandlers()
@@ -133,7 +133,7 @@ func HandleCommand(ctx context.Context, bot *tg_bot.BotAPI, r repo.Repository, u
 		handler = HandleHelp
 	}
 
-	if err := handler(ctx, bot, r, update, userId, msg); err != nil {
+	if err := handler(ctx, bot, r, update, userId, msg, groupChatID); err != nil {
 		log.Printf("Error handling command %s: %v", command, err)
 	}
 }
